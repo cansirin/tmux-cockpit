@@ -6,7 +6,10 @@ export COCKPIT_SOCKET="cockpit_test_$$"
 SCRIPTS="${BATS_TEST_DIRNAME}/../scripts"
 
 setup() {
-  tmux -L "$COCKPIT_SOCKET" new-session -d -s base -x 200 -y 50
+  # -f /dev/null → start the server with NO user config, so base-index is the
+  # default 0 (matches a fresh install / CI). This guards against assuming the
+  # developer's own base-index 1.
+  tmux -L "$COCKPIT_SOCKET" -f /dev/null new-session -d -s base -x 200 -y 50
 }
 
 teardown() {
@@ -33,7 +36,9 @@ teardown() {
   tmux -L "$COCKPIT_SOCKET" new-session -d -s withcmd -c "$HOME"
   bash "$SCRIPTS/layout-default.sh" withcmd "$HOME" "echo hello-cockpit"
   sleep 0.5
-  run tmux -L "$COCKPIT_SOCKET" capture-pane -t withcmd.1 -p
+  # capture the main pane by id (index-agnostic)
+  main="$(tmux -L "$COCKPIT_SOCKET" list-panes -t withcmd -F '#{pane_id}' | head -1)"
+  run tmux -L "$COCKPIT_SOCKET" capture-pane -t "$main" -p
   [[ "$output" == *hello-cockpit* ]]
 }
 
