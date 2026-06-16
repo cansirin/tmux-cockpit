@@ -51,45 +51,6 @@ teardown() {
   [[ "$output" == *"hello extra"* ]]     # the user-supplied extra entry
 }
 
-@test "worktree helper creates a sibling worktree on a new branch" {
-  repo="$BATS_TEST_TMPDIR/monorepo"
-  git init -q -b main "$repo"
-  git -C "$repo" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
-  run env WT_NO_OPEN=1 WT_NO_DELEGATE=1 bash -c "cd '$repo' && '$SCRIPTS/worktree.sh' widget-fix"
-  [ "$status" -eq 0 ]
-  [ -d "$BATS_TEST_TMPDIR/monorepo-widget-fix" ]
-  run git -C "$BATS_TEST_TMPDIR/monorepo-widget-fix" rev-parse --abbrev-ref HEAD
-  [ "$output" = "widget-fix" ]
-}
-
-@test "worktree helper resolves the main repo from inside a linked worktree" {
-  repo="$BATS_TEST_TMPDIR/mono2"
-  git init -q -b main "$repo"
-  git -C "$repo" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
-  git -C "$repo" worktree add -q -b first "$BATS_TEST_TMPDIR/mono2-first" >/dev/null
-  # run from the linked worktree — sibling must still be named off the MAIN repo
-  run env WT_NO_OPEN=1 WT_NO_DELEGATE=1 bash -c "cd '$BATS_TEST_TMPDIR/mono2-first' && '$SCRIPTS/worktree.sh' second"
-  [ "$status" -eq 0 ]
-  [ -d "$BATS_TEST_TMPDIR/mono2-second" ]
-}
-
-@test "wt delegates creation to git wte when available" {
-  repo="$BATS_TEST_TMPDIR/deleg"
-  git init -q -b main "$repo"
-  git -C "$repo" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
-  # a stand-in `git wte` that creates a worktree at a known path
-  fake="$BATS_TEST_TMPDIR/fake-wte"
-  printf '#!/usr/bin/env bash\ngit worktree add -b "$1" "%s/deleg-wt-$1" >/dev/null\necho Done.\n' \
-    "$BATS_TEST_TMPDIR" > "$fake"
-  chmod +x "$fake"
-  git -C "$repo" config alias.wte "!$fake"
-  run env WT_NO_OPEN=1 bash -c "cd '$repo' && '$SCRIPTS/worktree.sh' foo"
-  [ "$status" -eq 0 ]
-  # wt captured the path git wte created (via worktree-list diff), not a sibling
-  [[ "$output" == *"$BATS_TEST_TMPDIR/deleg-wt-foo"* ]]
-  [ ! -d "$BATS_TEST_TMPDIR/deleg-foo" ]   # did NOT use the basic sibling fallback
-}
-
 @test "sessionizer creates a session from a path argument" {
   proj="$BATS_TEST_TMPDIR/myproj"
   mkdir -p "$proj"
