@@ -51,6 +51,28 @@ teardown() {
   [[ "$output" == *"hello extra"* ]]     # the user-supplied extra entry
 }
 
+@test "worktree helper creates a sibling worktree on a new branch" {
+  repo="$BATS_TEST_TMPDIR/monorepo"
+  git init -q -b main "$repo"
+  git -C "$repo" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
+  run env WT_NO_OPEN=1 bash -c "cd '$repo' && '$SCRIPTS/worktree.sh' widget-fix"
+  [ "$status" -eq 0 ]
+  [ -d "$BATS_TEST_TMPDIR/monorepo-widget-fix" ]
+  run git -C "$BATS_TEST_TMPDIR/monorepo-widget-fix" rev-parse --abbrev-ref HEAD
+  [ "$output" = "widget-fix" ]
+}
+
+@test "worktree helper resolves the main repo from inside a linked worktree" {
+  repo="$BATS_TEST_TMPDIR/mono2"
+  git init -q -b main "$repo"
+  git -C "$repo" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
+  git -C "$repo" worktree add -q -b first "$BATS_TEST_TMPDIR/mono2-first" >/dev/null
+  # run from the linked worktree — sibling must still be named off the MAIN repo
+  run env WT_NO_OPEN=1 bash -c "cd '$BATS_TEST_TMPDIR/mono2-first' && '$SCRIPTS/worktree.sh' second"
+  [ "$status" -eq 0 ]
+  [ -d "$BATS_TEST_TMPDIR/mono2-second" ]
+}
+
 @test "sessionizer creates a session from a path argument" {
   proj="$BATS_TEST_TMPDIR/myproj"
   mkdir -p "$proj"

@@ -57,6 +57,23 @@ The menu ships with a full default (splits, zoom, new/rename window, jump,
 switch/rename session, detach, reload, all-keys); `@cockpit-menu-extra` appends
 to it. To replace it entirely, just `bind Space …` yourself after the plugin loads.
 
+## Worktrees
+
+`scripts/worktree.sh` creates (or reuses) a git worktree for a feature branch as
+a sibling of the main repo, then opens its cockpit session. Alias it:
+
+```zsh
+alias wt="$HOME/.tmux/plugins/tmux-cockpit/scripts/worktree.sh"
+```
+
+```bash
+wt widget-fix          # → ../<repo>-widget-fix on branch widget-fix, opens its cockpit
+wt hotfix origin/main  # branch off a specific ref
+```
+
+Works from the main clone or from inside any existing worktree — the sibling is
+always named off the main repo. Existing branch? It checks it out instead of creating one.
+
 ## Tests
 
 ```bash
