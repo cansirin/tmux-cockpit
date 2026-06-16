@@ -59,20 +59,23 @@ to it. To replace it entirely, just `bind Space …` yourself after the plugin l
 
 ## Worktrees
 
-`scripts/worktree.sh` creates (or reuses) a git worktree for a feature branch as
-a sibling of the main repo, then opens its cockpit session. Alias it:
+`scripts/worktree.sh` creates (or reuses) a git worktree, then opens its cockpit
+session. Alias it:
 
 ```zsh
 alias wt="$HOME/.tmux/plugins/tmux-cockpit/scripts/worktree.sh"
 ```
 
 ```bash
-wt widget-fix          # → ../<repo>-widget-fix on branch widget-fix, opens its cockpit
-wt hotfix origin/main  # branch off a specific ref
+wt widget-fix          # new worktree + branch, opens its cockpit
+wt feat/foo --from origin/main   # extra args pass straight through to creation
 ```
 
-Works from the main clone or from inside any existing worktree — the sibling is
-always named off the main repo. Existing branch? It checks it out instead of creating one.
+**Creation is delegated.** If you have a `git wte` command (a richer worktree
+creator — copies gitignored `.env`/`.dev.vars`, runs install + repo setup), `wt`
+uses it and just adds the cockpit, forwarding every extra arg. Without one, `wt`
+falls back to a basic `git worktree add` as a sibling `<main-repo>-<name>` (works
+from the main clone or any linked worktree). `WT_NO_DELEGATE=1` forces the fallback.
 
 ## Tests
 
