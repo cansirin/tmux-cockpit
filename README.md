@@ -1,0 +1,54 @@
+# tmux-cockpit ✈️
+
+Turn tmux into a project command center. One keystroke jumps between projects,
+every session is visible in the status bar, each project opens a ready-to-fly
+"cockpit" layout, and a menu means you never memorize a binding.
+
+Built by [@cansirin](https://github.com/cansirin), stolen with love by
+[@usirin](https://github.com/usirin). 🌟
+
+## What you get
+
+| Press | Does |
+|---|---|
+| `Ctrl-f` (no prefix) | floating fuzzy **project picker** — create-or-jump to any project's session, works even inside vim/claude |
+| `prefix + f` | same picker |
+| `prefix + Space` | **menu of everything** (split, zoom, jump, detach, all-keys) — recall, not memorize |
+| status bar | **every session at a glance** — `●` where you are, `○` running in the background |
+| open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
+
+Session names are made collision-proof automatically (two folders both named
+`monorepo`? → `parentA-monorepo`, `parentB-monorepo`).
+
+## Install (TPM)
+
+Add to `~/.tmux.conf`:
+
+```tmux
+set -g @plugin 'cansirin/tmux-cockpit'
+run '~/.tmux/plugins/tpm/tpm'   # keep this last
+```
+
+Then press `prefix + I` to fetch it. Requires `tmux >= 3.2`, `fzf`.
+
+## Configure (optional)
+
+```tmux
+# where to look for projects (space-separated; ~ and globs expand)
+set -g @cockpit-paths "$HOME/code $HOME/work/*"
+
+# launch a command in each cockpit's main pane (great with an AI agent)
+set -g @cockpit-main-cmd 'claude'
+
+# a folder of per-project layout overrides: <session-name>.sh
+set -g @cockpit-layouts "~/.config/tmux/layouts"
+```
+
+## How it works
+
+- `scripts/sessionizer.sh` — the picker + create-or-switch logic
+- `scripts/session-list.sh` — renders the status-bar session list
+- `scripts/layout-default.sh` — the default cockpit layout
+- `cockpit.tmux` — wires the keybindings and status bar (TPM runs this)
+
+MIT.
