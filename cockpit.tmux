@@ -7,32 +7,53 @@
 # then press prefix + I.
 #
 # Options (set in ~/.tmux.conf before `run '~/.tmux/plugins/tpm/tpm'`):
-#   @cockpit-paths     dirs to scan for projects (space-separated, ~ and globs ok)
-#                      default: "$HOME/code $HOME/dev $HOME/Documents/development"
-#   @cockpit-main-cmd  command launched in the cockpit's main pane (e.g. 'claude')
-#                      default: empty (plain shell)
-#   @cockpit-layouts   optional dir of per-project layouts (<session-name>.sh)
+#   @cockpit-paths      dirs to scan for projects (space-separated, ~ and globs ok)
+#   @cockpit-extra      literal dirs to include in the picker verbatim
+#   @cockpit-main-cmd   command launched in the cockpit's main pane (e.g. 'claude')
+#   @cockpit-layouts    optional dir of per-project layouts (<session-name>.sh)
+#   @cockpit-menu-extra extra prefix+Space menu entries, as: '"label" key "command" ...'
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS="$CURRENT_DIR/scripts"
 chmod +x "$SCRIPTS"/*.sh 2>/dev/null
+. "$SCRIPTS/lib.sh"
 
-# prefix + Space → menu of everything (no memorization needed)
-tmux bind Space display-menu -T "#[align=centre fg=green]« cockpit »" -x C -y C \
-  "split right"     "|" "split-window -h -c '#{pane_current_path}'" \
-  "split down"      "-" "split-window -v -c '#{pane_current_path}'" \
-  "zoom pane"        z  "resize-pane -Z" \
-  "" \
-  "JUMP to project"  f  "display-popup -E -w 60% -h 50% '$SCRIPTS/sessionizer.sh'" \
-  "switch session"   s  "choose-tree -Zs" \
-  "detach"           d  "detach-client" \
-  "" \
-  "all keys"         ?  "list-keys"
+picker="display-popup -E -w 60% -h 50% '$SCRIPTS/sessionizer.sh'"
+
+# prefix + Space → menu of everything. Built as an array so quoting stays sane
+# and user-defined entries can be appended cleanly.
+menu=(
+  bind Space display-menu -T "#[align=centre fg=green]« cockpit »" -x C -y C
+  "split right"      "|" "split-window -h -c '#{pane_current_path}'"
+  "split down"       "-" "split-window -v -c '#{pane_current_path}'"
+  "zoom pane"         z  "resize-pane -Z"
+  ""
+  "new window"        n  "new-window -c '#{pane_current_path}'"
+  "rename window"     "," "command-prompt -I '#W' 'rename-window %%'"
+  "next / prev win"   "." "next-window"
+  ""
+  "JUMP to project"   f  "$picker"
+  "switch session"    s  "choose-tree -Zs"
+  "rename session"    R  "command-prompt -I '#S' 'rename-session %%'"
+  "detach"            d  "detach-client"
+  ""
+  "reload config"     r  "source-file ~/.tmux.conf ; display 'config reloaded'"
+)
+
+# append user-defined entries: @cockpit-menu-extra '"deploy" D "run-shell deploy" ...'
+extra_str="$(_tm show-option -gqv @cockpit-menu-extra 2>/dev/null)"
+if [ -n "$extra_str" ]; then
+  eval "extra=($extra_str)"
+  menu+=("" "${extra[@]}")
+fi
+
+menu+=("" "list ALL keys" "?" "list-keys")
+_tm "${menu[@]}"
 
 # project picker: prefix + f, and Ctrl-f with NO prefix (works inside programs)
-tmux bind f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
-tmux bind -n C-f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
+_tm bind f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
+_tm bind -n C-f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
 
 # live session list in the status bar — ● attached, ○ detached
-tmux set -g status-left " #($SCRIPTS/session-list.sh)"
-tmux set -g status-left-length 160
+_tm set -g status-left " #($SCRIPTS/session-list.sh)"
+_tm set -g status-left-length 160

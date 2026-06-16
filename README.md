@@ -48,7 +48,14 @@ set -g @cockpit-extra "$HOME/work/big-monorepo"
 
 # a folder of per-project layout overrides: <session-name>.sh
 set -g @cockpit-layouts "~/.config/tmux/layouts"
+
+# add your own entries to the prefix+Space menu: "label" key "command" ...
+set -g @cockpit-menu-extra '"deploy" D "run-shell ~/bin/deploy"  "kill server" K "kill-server"'
 ```
+
+The menu ships with a full default (splits, zoom, new/rename window, jump,
+switch/rename session, detach, reload, all-keys); `@cockpit-menu-extra` appends
+to it. To replace it entirely, just `bind Space …` yourself after the plugin loads.
 
 ## Tests
 

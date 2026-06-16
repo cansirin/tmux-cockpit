@@ -42,6 +42,15 @@ teardown() {
   [[ "$output" == *hello-cockpit* ]]
 }
 
+@test "menu has the full default entries and honors @cockpit-menu-extra" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-menu-extra '"hello extra" H "display hi"'
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" list-keys -T prefix
+  [[ "$output" == *"rename window"* ]]   # a restored default entry
+  [[ "$output" == *"reload config"* ]]   # another restored default entry
+  [[ "$output" == *"hello extra"* ]]     # the user-supplied extra entry
+}
+
 @test "sessionizer creates a session from a path argument" {
   proj="$BATS_TEST_TMPDIR/myproj"
   mkdir -p "$proj"
