@@ -10,26 +10,28 @@
 #   │    claude)       ├─────────────┤
 #   │                  │  4  logs    │
 #   └──────────────────┴─────────────┘
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib.sh"
 
 session="$1"
 dir="$2"
 main_cmd="$3"
 win="$session:1"
 
-tmux rename-window -t "$win" dev
+_tm rename-window -t "$win" dev
 
-tmux split-window -t "$win" -c "$dir"
-tmux split-window -t "$win" -c "$dir"
-tmux split-window -t "$win" -c "$dir"
+_tm split-window -t "$win" -c "$dir"
+_tm split-window -t "$win" -c "$dir"
+_tm split-window -t "$win" -c "$dir"
 
-tmux set-window-option -t "$win" main-pane-width 60%
-tmux select-layout    -t "$win" main-vertical
+_tm set-window-option -t "$win" main-pane-width 60%
+_tm select-layout    -t "$win" main-vertical
 
-tmux set-window-option -t "$win" pane-border-status top
-tmux set-window-option -t "$win" pane-border-format \
+_tm set-window-option -t "$win" pane-border-status top
+_tm set-window-option -t "$win" pane-border-format \
   ' #P #{?#{==:#P,1},main,#{?#{==:#P,2},dev,#{?#{==:#P,3},git,logs}}} '
 
 # launch the configured command in the main pane (e.g. claude), if any
-[[ -n "$main_cmd" ]] && tmux send-keys -t "$win".1 "$main_cmd" Enter
+[[ -n "$main_cmd" ]] && _tm send-keys -t "$win".1 "$main_cmd" Enter
 
-tmux select-pane -t "$win".1
+_tm select-pane -t "$win".1

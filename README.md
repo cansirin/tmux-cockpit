@@ -1,5 +1,7 @@
 # tmux-cockpit ✈️
 
+[![test](https://github.com/cansirin/tmux-cockpit/actions/workflows/test.yml/badge.svg)](https://github.com/cansirin/tmux-cockpit/actions/workflows/test.yml)
+
 Turn tmux into a project command center. One keystroke jumps between projects,
 every session is visible in the status bar, each project opens a ready-to-fly
 "cockpit" layout, and a menu means you never memorize a binding.
@@ -40,9 +42,21 @@ set -g @cockpit-paths "$HOME/code $HOME/work/*"
 # launch a command in each cockpit's main pane (great with an AI agent)
 set -g @cockpit-main-cmd 'claude'
 
+# include these exact dirs in the picker (for a repo nested deeper than its
+# siblings, e.g. a monorepo root). @cockpit-paths scans children; this adds dirs verbatim.
+set -g @cockpit-extra "$HOME/work/big-monorepo"
+
 # a folder of per-project layout overrides: <session-name>.sh
 set -g @cockpit-layouts "~/.config/tmux/layouts"
 ```
+
+## Tests
+
+```bash
+bats tests/        # needs: bats, tmux, fzf, jq
+```
+Unit tests cover session-name collision handling; integration tests run on an
+isolated tmux socket (your real sessions are never touched). CI runs them on every push.
 
 ## How it works
 
