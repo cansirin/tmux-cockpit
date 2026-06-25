@@ -69,8 +69,9 @@ to it. To replace it entirely, just `bind Space …` yourself after the plugin l
 current repo: two panes (1.1 + 1.2) each running `@cockpit-main-cmd` (default
 `claude`), pre-seeded with a bootstrap brief — their label, their sibling's tmux
 pane id, and a pointer to a working-agreement doc — so they coordinate
-themselves (disjoint lanes, reciprocal review, one shipper). The agreement ships
-as [`duo-protocol.md`](duo-protocol.md); override it with `@cockpit-duo-protocol`.
+themselves (disjoint lanes, the other pane reviews, one merger). The agreement
+ships as a tool-agnostic [`duo-protocol.md`](duo-protocol.md); point
+`@cockpit-duo-protocol` at your own to add your project's process.
 Re-running on the same repo just re-focuses the existing duo. Works from any
 pane; nothing is repo-specific.
 

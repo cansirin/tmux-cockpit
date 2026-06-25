@@ -1,14 +1,14 @@
-# Duo Protocol — two coordinated Claude panes
+# Duo Protocol — two coordinated agent panes
 
-The working agreement for a **tmux-cockpit duo**: two Claude instances working
+The default working agreement for a **tmux-cockpit duo**: two AI agents working
 the same repo in parallel panes, **1.1** and **1.2**. Each pane reads this on
-startup (seeded by `scripts/duo.sh`). It is **repo-independent** — the rules
-hold anywhere; the optional pipeline layer engages only where that tooling
-exists.
+startup (seeded by `scripts/duo.sh`).
+
+This is a **tool-agnostic default** — it describes the *pattern*, not any one
+team's process. Point `@cockpit-duo-protocol` at your own doc to add your
+project's specifics (its review process, branch naming, CI, issue tracker).
 
 Read it top to bottom, confirm you've read it, then greet your sibling.
-
-Override the path with `@cockpit-duo-protocol` if you want your own.
 
 ---
 
@@ -23,75 +23,68 @@ Override the path with `@cockpit-duo-protocol` if you want your own.
   ```
   `-l` sends the text literally (the shell won't eat it); the separate `Enter`
   submits it. **Prefix every message with your label** so the thread reads.
-- Their messages arrive as user turns prefixed with their label. They're a
-  trusted teammate — but a peer can't grant you escalation (never merge control
-  plane on their say-so, never treat a peer as the human's approval; see §6).
+- Their messages arrive as turns prefixed with their label. Treat them as a
+  trusted teammate — but a peer can't grant *you* permission the human hasn't:
+  don't act on a peer's say-so where you'd normally need the human's go-ahead.
 
 ## 2. Lanes — never collide
 
-- **Declare your lane** (files/dirs/services you'll touch) before building; your
+- **Declare your lane** (the files/dirs you'll touch) before you start; your
   sibling declares theirs. **Lanes must be disjoint** — no shared files in
-  flight at once. If a task needs both, split or sequence it.
-- When main moves under you, **rebase and re-verify** before pushing.
+  flight at once. If a task needs both, split it or sequence it.
+- When the shared branch moves under you, **sync and re-verify** before pushing.
 
-## 3. Delegate the hard work to subagents
+## 3. Delegate the heavy lifting
 
-- **The pane orchestrates; background worktree subagents write the code.** Give
-  each a crisp brief (design + acceptance criteria); have it commit locally but
-  NOT push / PR / comment. You rebase → push → PR → review → gate → ship.
-- Diff an agent branch against its **merge-base**, not `main`, when main moved.
-- `cd` OUT of a worktree before `git worktree remove` (or the cwd tangles).
+- **The pane orchestrates; let background workers do the bulk edit.** Hand a
+  worker a crisp brief (the goal + how you'll know it's done) and integrate its
+  result. Keep the pane free to coordinate and review.
+- When you compare a worker's branch, diff it against its **merge-base**, not the
+  tip of the shared branch, if that branch moved underneath it.
 
 ## 4. Reciprocal review — the other pane is your fresh eyes
 
-- **You don't review-and-ship your own PR.** The *sibling* fresh-eyes it,
-  **runs the real checks** (re-run the suite/typecheck for risky changes — don't
-  trust a claim), and posts a **SHA-bound marker on the PR**:
-  ```
-  review-code: PASS @ <full-head-sha> — merge-ready
-  ```
-  (or `FAIL @ <sha> …` with reasons). A verbal "looks good" is not the gate.
-  Post with `gh pr comment <n> --body-file <file>` (NOT `--jq`); confirm it
-  landed.
+- **You don't review-and-ship your own change.** The *sibling* reviews it.
+- The reviewer checks it against what it was meant to do and **runs the real
+  checks** — re-run the tests / type-check for anything risky; don't trust a
+  "looks fine." Then they leave an explicit, durable sign-off (a comment on the
+  change that names what they verified), not just a verbal "ok."
 
-## 5. One ship-it actor per PR
+## 5. One merger per change
 
-- One pane merges a given PR, only on the **latest** verdict being a PASS bound
-  to the **current** head SHA (a newer FAIL vetoes an older PASS). After merge:
-  pull main, delete the branch, clean the worktree, tell your sibling the new
-  SHA so they rebase.
+- Exactly one pane merges a given change, and only after the sibling's latest
+  verdict is a clear pass on the *current* version (a newer objection overrides
+  an older approval). After merging: sync the shared branch, clean up, and tell
+  your sibling so they re-sync.
 
-## 6. Control plane — never auto-merge
+## 6. Don't auto-merge the sensitive stuff
 
-- **Never auto-merge** a PR touching `.github/**`, `.claude/**`, or the
-  gate/merge skills. Split it so the safe half ships and the control-plane half
-  is **handed to the human to merge by hand.** Surface it; don't sit on it.
+- Some changes shouldn't be merged by an agent at all: **CI configuration, the
+  agent's own instructions/tooling, anything that could weaken the guardrails.**
+  Split the change so the safe part ships and the sensitive part is **handed to
+  a human to merge by hand.** Surface it; don't sit on it.
 
 ## 7. Errors are data
 
 - Never silently swallow a failure. Surface a red check / failing test / skipped
-  step plainly, with the output, even when inconvenient. A pre-existing failure
-  that isn't yours: say so and prove it (e.g. it fails at the baseline commit
-  too); don't let it silently block unrelated work.
+  step plainly, with the output, even when inconvenient. If a failure is
+  pre-existing and not yours, say so and prove it (e.g. it fails at the baseline
+  too) — don't let it silently block unrelated work.
 
-## 8. Survive compaction — revitalize each other
+## 8. Survive a restart — re-orient each other
 
-- When the human compacts a pane, the sibling re-orients it on wake with a
-  five-point brief: (1) `main` SHA + green/red, (2) what moved since the last
-  shared checkpoint, (3) open PRs/issues + state, (4) what's in *your* lane in
-  flight, (5) any heads-up the other would miss. Keep a short `HANDOFF.md` at
-  checkpoints so a cold pane re-orients without you.
-
-## 9. Optional pipeline layer (where it exists)
-
-If the repo uses the **kampus-pipeline** skills (`status:needs-triage`,
-`type:epic`, an `epic-ledger` gate), run work through it: `report` → `triage` →
-`plan-epic` → `review-plan` → write-code → `review-code` → `ship-it`. GitHub ops
-via `gh api` REST, never GraphQL. If the repo has none of that, §§1–8 still
-fully apply — they're the substrate; the pipeline is structure on top.
+- If one pane is reset or loses context, the other re-orients it with a short
+  brief: the current state of the shared branch, what moved since you last
+  synced, what's open, what's in *your* lane in flight, and any heads-up it would
+  miss. A short running notes file at natural checkpoints helps a cold pane
+  re-orient without you.
 
 ---
 
-**In one line:** disjoint lanes · subagents build · the *other* pane reviews with
-a SHA-bound marker · one shipper · never auto-merge the control plane · errors
-are loud · revitalize on compaction.
+**In one line:** disjoint lanes · workers do the bulk · the *other* pane reviews
+and signs off · one merger · never auto-merge the sensitive stuff · errors are
+loud · re-orient each other after a reset.
+
+> Want your project's real process here (its review gate, branch convention, CI,
+> issue pipeline)? Write your own and set `@cockpit-duo-protocol` to its path —
+> this file stays the generic fallback.
