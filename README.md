@@ -75,6 +75,29 @@ ships as a tool-agnostic [`duo-protocol.md`](duo-protocol.md); point
 Re-running on the same repo just re-focuses the existing duo. Works from any
 pane; nothing is repo-specific.
 
+**How the launch works** (for anyone extending it):
+
+1. `prefix + Space → D` fires the menu entry
+   `run-shell '<plugin>/scripts/duo.sh #{pane_current_path}'` — tmux expands the
+   current pane's path and runs `duo.sh` **headless on the server** (no tty).
+2. `duo.sh` names the session `<project>-duo` (`cockpit_duo_name`, which reuses
+   the collision-proof `cockpit_session_name`). If it already exists, it just
+   re-focuses and exits — never a second duo.
+3. Otherwise it creates a detached **two-pane** session in the repo
+   (`new-session -d` + `split-window -h`), then sends `@cockpit-main-cmd`
+   (default `claude`) into each pane to boot the agents.
+4. A **backgrounded** subshell waits `@cockpit-duo-boot-wait` seconds (so the
+   launch never blocks tmux during boot), then `send-keys -l` each pane its
+   brief from `cockpit_duo_brief` — its label, its sibling's pane id, and the
+   protocol path — and submits it with a separate `Enter`.
+5. It `switch-client`s you to the session (or `attach` from a bare terminal).
+   The two agents read the protocol, greet each other over `send-keys`, and wait
+   for your task.
+
+The pure logic (`cockpit_duo_name`, `cockpit_duo_brief`) lives in
+`scripts/lib.sh` and is unit-tested in `tests/duo.bats`; the launch + re-focus
+behavior is covered in `tests/integration.bats` (on an isolated socket).
+
 ## Tests
 
 ```bash
