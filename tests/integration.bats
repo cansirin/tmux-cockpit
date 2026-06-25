@@ -48,7 +48,32 @@ teardown() {
   run tmux -L "$COCKPIT_SOCKET" list-keys -T prefix
   [[ "$output" == *"rename window"* ]]   # a restored default entry
   [[ "$output" == *"reload config"* ]]   # another restored default entry
+  [[ "$output" == *"launch DUO here"* ]] # the built-in duo launcher entry
   [[ "$output" == *"hello extra"* ]]     # the user-supplied extra entry
+}
+
+@test "duo launches a two-pane session in the given repo" {
+  proj="$BATS_TEST_TMPDIR/duoproj"
+  mkdir -p "$proj"
+  # harmless per-pane command + no boot wait, so the test doesn't launch claude
+  # or block; TMUX set (dummy) forces the non-blocking switch-client branch.
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-duo-boot-wait 0
+  TMUX="fake" bash "$SCRIPTS/duo.sh" "$proj" 2>/dev/null || true
+  run tmux -L "$COCKPIT_SOCKET" list-panes -t duoproj-duo
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "duo re-focuses an existing session instead of spawning a second" {
+  proj="$BATS_TEST_TMPDIR/dup"
+  mkdir -p "$proj"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-duo-boot-wait 0
+  TMUX="fake" bash "$SCRIPTS/duo.sh" "$proj" 2>/dev/null || true
+  TMUX="fake" bash "$SCRIPTS/duo.sh" "$proj" 2>/dev/null || true
+  run tmux -L "$COCKPIT_SOCKET" list-sessions -F '#{session_name}'
+  [[ "$(printf '%s\n' "$output" | grep -c '^dup-duo$')" -eq 1 ]]
 }
 
 @test "sessionizer creates a session from a path argument" {

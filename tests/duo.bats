@@ -1,0 +1,40 @@
+#!/usr/bin/env bats
+# Unit tests for the duo helpers — pure logic, no tmux required.
+
+setup() {
+  source "${BATS_TEST_DIRNAME}/../scripts/lib.sh"
+}
+
+@test "duo name is the session name plus a -duo suffix" {
+  run cockpit_duo_name /home/u/code/kampus
+  [ "$status" -eq 0 ]
+  [ "$output" = "kampus-duo" ]
+}
+
+@test "duo name inherits the monorepo collision fix" {
+  run cockpit_duo_name /home/u/csirin/monorepo
+  [ "$output" = "csirin-monorepo-duo" ]
+}
+
+@test "two different monorepos get distinct duo names" {
+  a="$(cockpit_duo_name /home/u/csirin/monorepo)"
+  b="$(cockpit_duo_name /home/u/Binclusive/monorepo)"
+  [ "$a" = "csirin-monorepo-duo" ]
+  [ "$b" = "Binclusive-monorepo-duo" ]
+  [ "$a" != "$b" ]
+}
+
+@test "the brief names the pane, its sibling, the sibling's id, and the protocol" {
+  run cockpit_duo_brief 1.1 1.2 %12 /tmp/duo-protocol.md
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"pane 1.1"* ]]
+  [[ "$output" == *"sibling is pane 1.2"* ]]
+  [[ "$output" == *"%12"* ]]
+  [[ "$output" == *"/tmp/duo-protocol.md"* ]]
+}
+
+@test "the brief tells the pane to read the protocol first" {
+  run cockpit_duo_brief 1.2 1.1 %7 /x/p.md
+  [[ "$output" == *"FIRST read"* ]]
+  [[ "$output" == *"greet your sibling"* ]]
+}

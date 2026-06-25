@@ -24,3 +24,23 @@ cockpit_session_name() {
   esac
   printf '%s' "$name" | tr ' .:' '___'
 }
+
+# cockpit_duo_name PATH -> the session name for a two-pane Claude "duo" on PATH.
+# A "-duo" suffix on the normal session name, so a duo never collides with the
+# project's regular cockpit session.
+cockpit_duo_name() {
+  printf '%s-duo' "$(cockpit_session_name "$1")"
+}
+
+# cockpit_duo_brief SELF SIBLING_LABEL SIBLING_PANE PROTOCOL -> the bootstrap
+# prompt seeded into one duo pane: its label, how to reach its sibling, and the
+# protocol to read. Pure string assembly (unit-tested); the caller send-keys it.
+cockpit_duo_brief() {
+  local self="$1" sib="$2" sibpane="$3" protocol="$4"
+  printf '%s' "You are pane $self of a coordinated Claude duo working this repo. \
+FIRST read $protocol and follow it for the whole session. Your sibling is pane \
+$sib at tmux id $sibpane — message it with: tmux send-keys -t $sibpane -l \
+\"$self: <msg>\" then tmux send-keys -t $sibpane Enter. Once you've read the \
+protocol, greet your sibling ($sib) so you both confirm the channel works, then \
+wait for the human's task."
+}
