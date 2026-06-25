@@ -34,6 +34,8 @@ menu=(
   ""
   "JUMP to project"   f  "$picker"
   "launch DUO here"   D  "run-shell '$SCRIPTS/duo.sh #{pane_current_path}'"
+  "handoff brief"     H  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/duo-handoff.sh | less -R'"
+  "worktree status"   w  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-status.sh | less -R'"
   "switch session"    s  "choose-tree -Zs"
   "rename session"    R  "command-prompt -I '#S' 'rename-session %%'"
   "detach"            d  "detach-client"

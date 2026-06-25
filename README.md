@@ -17,6 +17,8 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `prefix + f` | same picker |
 | `prefix + Space` | **menu of everything** (split, zoom, jump, detach, all-keys) — recall, not memorize |
 | `prefix + Space` → `D` | **launch a Claude duo** — two coordinated AI panes (1.1 + 1.2) in the current repo |
+| `prefix + Space` → `H` | **handoff brief** — a re-orientation snapshot (HEAD, recent commits, open PRs, worktrees) |
+| `prefix + Space` → `w` | **worktree status** — which worktrees are merged (safe to prune) vs still unmerged |
 | status bar | **every session at a glance** — `●` where you are, `○` running in the background |
 | open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
 
@@ -73,7 +75,11 @@ themselves (disjoint lanes, the other pane reviews, one merger). The agreement
 ships as a tool-agnostic [`duo-protocol.md`](duo-protocol.md); point
 `@cockpit-duo-protocol` at your own to add your project's process.
 Re-running on the same repo just re-focuses the existing duo. Works from any
-pane; nothing is repo-specific.
+pane; nothing is repo-specific. The two panes are labeled `1.1` / `1.2` on their
+borders so you always know which is which, and they talk to each other with
+[`tmsg`](scripts/tmsg.sh) (`tmsg <pane> "1.1: …"` — the `send-keys` two-step in
+one call). Before a context reset, `prefix + Space → H` (or `duo-handoff`) prints
+a brief that re-orients a cold pane fast.
 
 **How the launch works** (for anyone extending it):
 
@@ -112,6 +118,9 @@ isolated tmux socket (your real sessions are never touched). CI runs them on eve
 - `scripts/session-list.sh` — renders the status-bar session list
 - `scripts/layout-default.sh` — the default cockpit layout
 - `scripts/duo.sh` — launches the two-pane Claude duo (`duo-protocol.md` is the brief)
+- `scripts/tmsg.sh` — `tmsg <pane> <msg>`: send a line to another pane in one call (the `send-keys -l … ; send-keys Enter` two-step, wrapped)
+- `scripts/duo-handoff.sh` — prints the re-orientation brief (HEAD, commits, PRs, worktrees)
+- `scripts/wt-status.sh` — classifies worktrees as merged / unmerged vs a base
 - `cockpit.tmux` — wires the keybindings and status bar (TPM runs this)
 
 MIT.

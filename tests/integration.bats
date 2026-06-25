@@ -63,6 +63,10 @@ teardown() {
   run tmux -L "$COCKPIT_SOCKET" list-panes -t duoproj-duo
   [ "$status" -eq 0 ]
   [ "${#lines[@]}" -eq 2 ]
+  # panes are labeled 1.1 / 1.2 on their borders
+  run tmux -L "$COCKPIT_SOCKET" list-panes -t duoproj-duo -F '#{pane_title}'
+  [[ "$output" == *"1.1"* ]]
+  [[ "$output" == *"1.2"* ]]
 }
 
 @test "duo re-focuses an existing session instead of spawning a second" {
