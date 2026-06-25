@@ -12,8 +12,8 @@ _tm() {
 }
 
 # cockpit_session_name PATH -> a unique, tmux-safe session name.
-# Folders named monorepo* collide across projects (csirin/monorepo vs
-# Binclusive/monorepo), so prefix those with their parent dir; everything else
+# Folders named monorepo* collide across projects (acme/monorepo vs
+# globex/monorepo), so prefix those with their parent dir; everything else
 # keeps its basename. ' ' '.' ':' are replaced with '_'.
 cockpit_session_name() {
   local path="$1" base name

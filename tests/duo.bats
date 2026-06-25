@@ -6,21 +6,21 @@ setup() {
 }
 
 @test "duo name is the session name plus a -duo suffix" {
-  run cockpit_duo_name /home/u/code/kampus
+  run cockpit_duo_name /home/u/code/webapp
   [ "$status" -eq 0 ]
-  [ "$output" = "kampus-duo" ]
+  [ "$output" = "webapp-duo" ]
 }
 
 @test "duo name inherits the monorepo collision fix" {
-  run cockpit_duo_name /home/u/csirin/monorepo
-  [ "$output" = "csirin-monorepo-duo" ]
+  run cockpit_duo_name /home/u/acme/monorepo
+  [ "$output" = "acme-monorepo-duo" ]
 }
 
 @test "two different monorepos get distinct duo names" {
-  a="$(cockpit_duo_name /home/u/csirin/monorepo)"
-  b="$(cockpit_duo_name /home/u/Binclusive/monorepo)"
-  [ "$a" = "csirin-monorepo-duo" ]
-  [ "$b" = "Binclusive-monorepo-duo" ]
+  a="$(cockpit_duo_name /home/u/acme/monorepo)"
+  b="$(cockpit_duo_name /home/u/globex/monorepo)"
+  [ "$a" = "acme-monorepo-duo" ]
+  [ "$b" = "globex-monorepo-duo" ]
   [ "$a" != "$b" ]
 }
 
