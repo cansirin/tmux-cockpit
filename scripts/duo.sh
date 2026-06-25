@@ -54,6 +54,14 @@ panes="$(_tm list-panes -t "$name" -F '#{pane_id}')"
 p1="$(printf '%s\n' "$panes" | sed -n '1p')"
 p2="$(printf '%s\n' "$panes" | sed -n '2p')"
 
+# Label the panes 1.1 / 1.2 on their borders, scoped to this session — so you
+# always know which pane is which and that a duo is live. Other sessions are
+# untouched (these are session-level options).
+_tm select-pane -t "$p1" -T "1.1"
+_tm select-pane -t "$p2" -T "1.2"
+_tm set -t "$name" pane-border-status top
+_tm set -t "$name" pane-border-format " duo #{pane_title} "
+
 # Start the command in each pane.
 _tm send-keys -t "$p1" "$cmd" Enter
 _tm send-keys -t "$p2" "$cmd" Enter
