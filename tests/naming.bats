@@ -6,27 +6,27 @@ setup() {
 }
 
 @test "a normal project keeps its basename" {
-  run cockpit_session_name /home/u/code/kampus
+  run cockpit_session_name /home/u/code/webapp
   [ "$status" -eq 0 ]
-  [ "$output" = "kampus" ]
+  [ "$output" = "webapp" ]
 }
 
 @test "monorepo is prefixed with its parent (collision fix)" {
-  run cockpit_session_name /home/u/csirin/monorepo
-  [ "$output" = "csirin-monorepo" ]
+  run cockpit_session_name /home/u/acme/monorepo
+  [ "$output" = "acme-monorepo" ]
 }
 
 @test "two different monorepos get distinct names" {
-  a="$(cockpit_session_name /home/u/csirin/monorepo)"
-  b="$(cockpit_session_name /home/u/Binclusive/monorepo)"
-  [ "$a" = "csirin-monorepo" ]
-  [ "$b" = "Binclusive-monorepo" ]
+  a="$(cockpit_session_name /home/u/acme/monorepo)"
+  b="$(cockpit_session_name /home/u/globex/monorepo)"
+  [ "$a" = "acme-monorepo" ]
+  [ "$b" = "globex-monorepo" ]
   [ "$a" != "$b" ]
 }
 
 @test "a monorepo worktree keeps its suffix and gains the parent" {
-  run cockpit_session_name /home/u/Binclusive/monorepo-widget-cdn
-  [ "$output" = "Binclusive-monorepo-widget-cdn" ]
+  run cockpit_session_name /home/u/globex/monorepo-widget-cdn
+  [ "$output" = "globex-monorepo-widget-cdn" ]
 }
 
 @test "spaces, dots and colons are sanitized to underscores" {
