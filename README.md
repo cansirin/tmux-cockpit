@@ -16,6 +16,7 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `Ctrl-f` (no prefix) | floating fuzzy **project picker** — create-or-jump to any project's session, works even inside vim/claude |
 | `prefix + f` | same picker |
 | `prefix + Space` | **menu of everything** (split, zoom, jump, detach, all-keys) — recall, not memorize |
+| `prefix + Space` → `D` | **launch a Claude duo** — two coordinated AI panes (1.1 + 1.2) in the current repo |
 | status bar | **every session at a glance** — `●` where you are, `○` running in the background |
 | open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
 
@@ -49,13 +50,29 @@ set -g @cockpit-extra "$HOME/work/big-monorepo"
 # a folder of per-project layout overrides: <session-name>.sh
 set -g @cockpit-layouts "~/.config/tmux/layouts"
 
+# Claude duo (see below): point at your own working-agreement doc, and tune how
+# long to wait for the per-pane command to boot before seeding its brief.
+set -g @cockpit-duo-protocol "~/.config/tmux/my-duo-protocol.md"
+set -g @cockpit-duo-boot-wait 8
+
 # add your own entries to the prefix+Space menu: "label" key "command" ...
-set -g @cockpit-menu-extra '"deploy" D "run-shell ~/bin/deploy"  "kill server" K "kill-server"'
+set -g @cockpit-menu-extra '"deploy" G "run-shell ~/bin/deploy"  "kill server" K "kill-server"'
 ```
 
-The menu ships with a full default (splits, zoom, new/rename window, jump,
+The menu ships with a full default (splits, zoom, jump, **launch duo**,
 switch/rename session, detach, reload, all-keys); `@cockpit-menu-extra` appends
 to it. To replace it entirely, just `bind Space …` yourself after the plugin loads.
+
+## Claude duo
+
+`prefix + Space → D` spins up a **two-pane coordinated Claude pair** in the
+current repo: two panes (1.1 + 1.2) each running `@cockpit-main-cmd` (default
+`claude`), pre-seeded with a bootstrap brief — their label, their sibling's tmux
+pane id, and a pointer to a working-agreement doc — so they coordinate
+themselves (disjoint lanes, reciprocal review, one shipper). The agreement ships
+as [`duo-protocol.md`](duo-protocol.md); override it with `@cockpit-duo-protocol`.
+Re-running on the same repo just re-focuses the existing duo. Works from any
+pane; nothing is repo-specific.
 
 ## Tests
 
@@ -70,6 +87,7 @@ isolated tmux socket (your real sessions are never touched). CI runs them on eve
 - `scripts/sessionizer.sh` — the picker + create-or-switch logic
 - `scripts/session-list.sh` — renders the status-bar session list
 - `scripts/layout-default.sh` — the default cockpit layout
+- `scripts/duo.sh` — launches the two-pane Claude duo (`duo-protocol.md` is the brief)
 - `cockpit.tmux` — wires the keybindings and status bar (TPM runs this)
 
 MIT.

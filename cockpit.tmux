@@ -33,6 +33,7 @@ menu=(
   "next / prev win"   "." "next-window"
   ""
   "JUMP to project"   f  "$picker"
+  "launch DUO here"   D  "run-shell '$SCRIPTS/duo.sh #{pane_current_path}'"
   "switch session"    s  "choose-tree -Zs"
   "rename session"    R  "command-prompt -I '#S' 'rename-session %%'"
   "detach"            d  "detach-client"
