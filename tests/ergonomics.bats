@@ -32,6 +32,16 @@ mk_repo() {
   [[ "$output" == *usage* ]]
 }
 
+@test "tmsg works invoked through a symlink (PATH install)" {
+  ln -s "$SCRIPTS/tmsg.sh" "$BATS_TEST_TMPDIR/tmsg"
+  tmux -L "$COCKPIT_SOCKET" new-session -d -s linktest -x 200 -y 50
+  pane="$(tmux -L "$COCKPIT_SOCKET" list-panes -t linktest -F '#{pane_id}' | head -1)"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" "$BATS_TEST_TMPDIR/tmsg" "$pane" echo via-symlink-ok
+  sleep 0.4
+  run tmux -L "$COCKPIT_SOCKET" capture-pane -t "$pane" -p
+  [[ "$output" == *via-symlink-ok* ]]
+}
+
 @test "duo-handoff emits the brief sections for a git repo" {
   repo="$BATS_TEST_TMPDIR/hrepo"
   mk_repo "$repo"
