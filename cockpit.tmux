@@ -12,9 +12,9 @@
 #   @cockpit-main-cmd   command launched in the cockpit's main pane (e.g. 'claude')
 #   @cockpit-layouts    optional dir of per-project layouts (<session-name>.sh)
 #   @cockpit-menu-extra extra prefix+Space menu entries, as: '"label" key "command" ...'
-#   @cockpit-topbar     'on' enables a second status line of reminders (top bar)
-#   @cockpit-reminders-file  file of reminders, one per line (skip #/blank, ~ expands)
-#   @cockpit-reminders  inline reminder(s) shown in the top bar
+#   @cockpit-reminders-file  file of reminders, one per line (skip #/blank, ~ expands);
+#                       shows them on the [R] row. Edit via prefix+Space → e.
+#   @cockpit-reminders  inline reminder(s) shown on the [R] row alongside the file's
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS="$CURRENT_DIR/scripts"

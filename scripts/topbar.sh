@@ -22,10 +22,10 @@ inline="$(_tm show-option -gqv @cockpit-reminders 2>/dev/null)"
 
 [ "${#items[@]}" -eq 0 ] && exit 0   # nothing configured → blank bar
 
-# Theme-neutral, like session-list.sh: items ride the bar's own fg; only the
-# separators are dimmed. No hardcoded colors (they read as loud, break on a light
-# theme — see session-list.sh's color note). No marker here; the caller's section
-# tag (e.g. the [R] chip) labels the line.
+# Items are tinted with the [R] legend colour so the row reads as one group, like
+# the [S] sessions; separators stay dim. The accent is a fixed 256-palette colour
+# (not a theme-remapped 0–15 slot), matching session-list.sh's colour note. No
+# marker here; the caller's [R] tag labels the line.
 accent=colour150   # the [R] legend colour — keep in sync with the R tag in cockpit.tmux
 sep=''
 for it in "${items[@]}"; do
