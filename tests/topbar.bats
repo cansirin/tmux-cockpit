@@ -48,9 +48,24 @@ teardown() {
   [[ "$output" == *"from inline"* ]]
 }
 
-@test "cockpit.tmux with @cockpit-topbar on sets status to 2" {
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-topbar on
+@test "cockpit.tmux adds a reminders row (status 2) when reminders are configured" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders "ship it"
   COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
   run tmux -L "$COCKPIT_SOCKET" show-option -gv status
   [ "$output" = "2" ]
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv 'status-format[1]'
+  [[ "$output" == *"topbar.sh"* ]]   # row 1 is the reminders ([R]) line
+}
+
+@test "cockpit.tmux keeps a single status row when no reminders are configured" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status
+  [ "$output" = "on" ]
+}
+
+@test "edit-reminders creates the reminders file (so the menu entry can edit it)" {
+  f="$BATS_TEST_TMPDIR/sub/reminders.txt"   # nested dir that does not exist yet
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders-file "$f"
+  EDITOR=true bash "$SCRIPTS/edit-reminders.sh"
+  [ -f "$f" ]
 }
