@@ -12,6 +12,9 @@
 #   @cockpit-main-cmd   command launched in the cockpit's main pane (e.g. 'claude')
 #   @cockpit-layouts    optional dir of per-project layouts (<session-name>.sh)
 #   @cockpit-menu-extra extra prefix+Space menu entries, as: '"label" key "command" ...'
+#   @cockpit-topbar     'on' enables a second status line of reminders (top bar)
+#   @cockpit-reminders-file  file of reminders, one per line (skip #/blank, ~ expands)
+#   @cockpit-reminders  inline reminder(s) shown in the top bar
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS="$CURRENT_DIR/scripts"
@@ -60,3 +63,11 @@ _tm bind -n C-f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
 # live session list in the status bar — ● attached, ○ detached
 _tm set -g status-left " #($SCRIPTS/session-list.sh)"
 _tm set -g status-left-length 160
+
+# opt-in reminder top bar: a SECOND status line (index 1) driven by topbar.sh.
+# Gated on @cockpit-topbar on so unset is byte-identical to today — the bottom
+# session-list bar is never touched for existing users.
+if [ "$(_tm show-option -gqv @cockpit-topbar 2>/dev/null)" = "on" ]; then
+  _tm set -g status 2
+  _tm set -g status-format[1] "#[align=left]#($SCRIPTS/topbar.sh)"
+fi

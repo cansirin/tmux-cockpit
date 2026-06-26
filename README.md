@@ -20,6 +20,7 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `prefix + Space` → `H` | **handoff brief** — a re-orientation snapshot (HEAD, recent commits, open PRs, worktrees) |
 | `prefix + Space` → `w` | **worktree status** — which worktrees are merged (safe to prune) vs still unmerged |
 | status bar | **every session at a glance** — `●` where you are, `○` running in the background |
+| top bar (opt-in) | a **reminder strip** above the status line — inline notes and/or a file you keep updated |
 | open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
 
 Session names are made collision-proof automatically (two folders both named
@@ -56,6 +57,14 @@ set -g @cockpit-layouts "~/.config/tmux/layouts"
 # long to wait for the per-pane command to boot before seeding its brief.
 set -g @cockpit-duo-protocol "~/.config/tmux/my-duo-protocol.md"
 set -g @cockpit-duo-boot-wait 8
+
+# opt-in reminder top bar: a second status line of reminders above the session
+# list. Unset = no change (the bottom bar is untouched). Set 'on' to enable.
+set -g @cockpit-topbar on
+# a file of reminders, one per line (blank lines and #-comments skipped; ~ expands)
+set -g @cockpit-reminders-file "~/.config/tmux/reminders.txt"
+# and/or inline reminders shown alongside the file's
+set -g @cockpit-reminders "ship the PR"
 
 # add your own entries to the prefix+Space menu: "label" key "command" ...
 set -g @cockpit-menu-extra '"deploy" G "run-shell ~/bin/deploy"  "kill server" K "kill-server"'
