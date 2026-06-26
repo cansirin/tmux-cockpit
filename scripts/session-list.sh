@@ -15,12 +15,13 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 
-accent=colour111   # the [S] legend colour — keep in sync with the S tag in cockpit.tmux
+accent="$(cockpit_opt @cockpit-color-sessions colour111)"   # the [S] legend colour
+ink="$(cockpit_opt @cockpit-color-ink colour235)"           # dark text on the filled chip
 
 _tm list-sessions -F '#{session_attached} #{session_name}' 2>/dev/null | \
 while read -r attached name; do
   if [ "${attached:-0}" -gt 0 ]; then
-    printf '#[fg=colour235,bg=%s,bold] %s #[default]  ' "$accent" "$name"
+    printf '#[fg=%s,bg=%s,bold] %s #[default]  ' "$ink" "$accent" "$name"
   else
     printf '#[fg=%s]%s#[default]  ' "$accent" "$name"
   fi

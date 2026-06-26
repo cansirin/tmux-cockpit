@@ -25,6 +25,12 @@ teardown() {
   [[ "$output" == *"#["* ]]   # rendered with tmux style tags (the [S] accent)
 }
 
+@test "session-list honors @cockpit-color-sessions" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-sessions colour99
+  run bash "$SCRIPTS/session-list.sh"
+  [[ "$output" == *"fg=colour99"* ]]   # the configured accent, not the default
+}
+
 @test "default layout builds a 4-pane cockpit" {
   tmux -L "$COCKPIT_SOCKET" new-session -d -s cockpit -c "$HOME"
   bash "$SCRIPTS/layout-default.sh" cockpit "$HOME" ""
