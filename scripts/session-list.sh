@@ -1,28 +1,27 @@
 #!/usr/bin/env bash
 # tmux-cockpit — render all sessions for the status bar.
-#   ● = attached / current (reverse-video chip)   ○ = background session
+#   active = filled chip   ·   background sessions = plain accent text
 #
-# THEME-AWARE + a11y, with NO hardcoded colors. The active session uses the
-# `reverse` attribute, which swaps the status bar's own fg/bg — so the chip is
-# built from whatever colors the current theme already uses for the bar. Its
-# contrast therefore equals the bar's normal text contrast (good by definition),
-# and it follows light/dark theme switches automatically. Hardcoded colourNNN
-# values would not. WCAG 1.4.1 (use of color) is satisfied structurally: the
-# active session is marked by the inverted chip + bold + ● glyph, never hue
-# alone. Inactive sessions render in the bar's normal foreground — fully legible,
-# they just lack the chip.
-#
-# NB: do NOT use named ANSI colors (black/cyan/white) here. Those are palette
-# slots 0/6/7 which themes remap — that is what made an earlier `fg=black` chip
-# render as slate-on-teal (near-invisible).
+# The section is tinted with the [S] legend colour so it reads as one group.
+# Contrast is controlled, not left to chance:
+#   - the accent is a fixed 256-palette colour (NOT a 0–15 slot, which themes
+#     remap — that trap once rendered a `fg=black` chip slate-on-teal), and the
+#     status bar bg is pinned dark, so the accent-on-bar stays legible.
+#   - the active session is a filled chip: dark ink (colour235) on the accent,
+#     so its contrast is guaranteed regardless of the bar bg, identical to the
+#     [S] tag chip.
+# WCAG 1.4.1 (not by hue alone): active = filled chip + bold; inactive = plain
+# accent text — the chip vs no-chip is a structural difference, not just hue.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
+
+accent=colour111   # the [S] legend colour — keep in sync with the S tag in cockpit.tmux
 
 _tm list-sessions -F '#{session_attached} #{session_name}' 2>/dev/null | \
 while read -r attached name; do
   if [ "${attached:-0}" -gt 0 ]; then
-    printf '#[reverse,bold] ●%s #[default] ' "$name"
+    printf '#[fg=colour235,bg=%s,bold] %s #[default]  ' "$accent" "$name"
   else
-    printf '#[none]○%s #[default] ' "$name"
+    printf '#[fg=%s]%s#[default]  ' "$accent" "$name"
   fi
 done

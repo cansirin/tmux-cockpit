@@ -43,6 +43,7 @@ menu=(
   "rename session"    R  "command-prompt -I '#S' 'rename-session %%'"
   "detach"            d  "detach-client"
   ""
+  "edit reminders"    e  "display-popup -E -w 70% -h 60% '$SCRIPTS/edit-reminders.sh'"
   "reload config"     r  "source-file ~/.tmux.conf ; display 'config reloaded'"
 )
 
@@ -60,14 +61,21 @@ _tm "${menu[@]}"
 _tm bind f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
 _tm bind -n C-f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
 
-# live session list in the status bar — ● attached, ○ detached
-_tm set -g status-left " #($SCRIPTS/session-list.sh)"
-_tm set -g status-left-length 160
+# Two-row labelled status. The main row spreads three groups space-between
+# (status-justify centre, set in user config): [S] sessions on the left, the
+# window list centred, the prefix/menu hint (status-right) on the right. The
+# current window stays orange — that is the "windows" accent, so no separate [W]
+# chip is needed once the list is centred on its own. Reminders get their OWN row
+# (row 1), marked by the [R] tag. Coloured tags read as a legend; content tinted.
+s_tag="#[fg=colour235,bg=colour111,bold] S #[default]"
+r_tag="#[fg=colour235,bg=colour150,bold] R #[default]"
+_tm set -g status-left "$s_tag #($SCRIPTS/session-list.sh)"
+_tm set -g status-left-length 400
 
-# opt-in reminder top bar: a SECOND status line (index 1) driven by topbar.sh.
-# Gated on @cockpit-topbar on so unset is byte-identical to today — the bottom
-# session-list bar is never touched for existing users.
-if [ "$(_tm show-option -gqv @cockpit-topbar 2>/dev/null)" = "on" ]; then
+# reminders row (row 1) — only when configured; the [R] tag makes it self-evident
+if [ -n "$(_tm show-option -gqv @cockpit-reminders-file 2>/dev/null)$(_tm show-option -gqv @cockpit-reminders 2>/dev/null)" ]; then
   _tm set -g status 2
-  _tm set -g status-format[1] "#[align=left]#($SCRIPTS/topbar.sh)"
+  _tm set -g status-format[1] "#[align=left]$r_tag #($SCRIPTS/topbar.sh)"
+else
+  _tm set -g status on
 fi

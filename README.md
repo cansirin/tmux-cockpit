@@ -19,8 +19,9 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `prefix + Space` → `D` | **launch a Claude duo** — two coordinated AI panes (1.1 + 1.2) in the current repo |
 | `prefix + Space` → `H` | **handoff brief** — a re-orientation snapshot (HEAD, recent commits, open PRs, worktrees) |
 | `prefix + Space` → `w` | **worktree status** — which worktrees are merged (safe to prune) vs still unmerged |
-| status bar | **every session at a glance** — `●` where you are, `○` running in the background |
-| top bar (opt-in) | a **reminder strip** above the status line — inline notes and/or a file you keep updated |
+| `prefix + Space` → `e` | **edit reminders** — pop open the reminders file in `$EDITOR` |
+| status bar | a **labelled legend** — `[S]` sessions · centred window list · `[R]` reminders (its own row), each a colored section tag |
+| reminders | a **`[R]` row** of inline notes and/or a file you keep updated — appears automatically when configured |
 | open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
 
 Session names are made collision-proof automatically (two folders both named
@@ -58,10 +59,9 @@ set -g @cockpit-layouts "~/.config/tmux/layouts"
 set -g @cockpit-duo-protocol "~/.config/tmux/my-duo-protocol.md"
 set -g @cockpit-duo-boot-wait 8
 
-# opt-in reminder top bar: a second status line of reminders above the session
-# list. Unset = no change (the bottom bar is untouched). Set 'on' to enable.
-set -g @cockpit-topbar on
-# a file of reminders, one per line (blank lines and #-comments skipped; ~ expands)
+# reminders: shown on their own [R] row (a second status line) whenever either of
+# these is set — no separate toggle. A file of reminders, one per line (blank
+# lines and #-comments skipped; ~ expands); edit it any time via prefix+Space → e.
 set -g @cockpit-reminders-file "~/.config/tmux/reminders.txt"
 # and/or inline reminders shown alongside the file's
 set -g @cockpit-reminders "ship the PR"

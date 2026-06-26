@@ -16,13 +16,13 @@ teardown() {
   tmux -L "$COCKPIT_SOCKET" kill-server 2>/dev/null || true
 }
 
-@test "session-list shows every session with a marker" {
+@test "session-list renders every session, styled" {
   tmux -L "$COCKPIT_SOCKET" new-session -d -s alpha
   run bash "$SCRIPTS/session-list.sh"
   [ "$status" -eq 0 ]
   [[ "$output" == *base* ]]
   [[ "$output" == *alpha* ]]
-  [[ "$output" == *"●"* || "$output" == *"○"* ]]
+  [[ "$output" == *"#["* ]]   # rendered with tmux style tags (the [S] accent)
 }
 
 @test "default layout builds a 4-pane cockpit" {
@@ -49,6 +49,7 @@ teardown() {
   [[ "$output" == *"rename window"* ]]   # a restored default entry
   [[ "$output" == *"reload config"* ]]   # another restored default entry
   [[ "$output" == *"launch DUO here"* ]] # the built-in duo launcher entry
+  [[ "$output" == *"edit reminders"* ]]  # the reminders editor entry
   [[ "$output" == *"hello extra"* ]]     # the user-supplied extra entry
 }
 
