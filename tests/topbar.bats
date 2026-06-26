@@ -1,0 +1,56 @@
+#!/usr/bin/env bats
+# Top-bar reminder tests. Run on an isolated tmux socket (COCKPIT_SOCKET) so the
+# developer's real server is never touched. -f /dev/null → no user config.
+
+export COCKPIT_SOCKET="cockpit_topbar_test_$$"
+SCRIPTS="${BATS_TEST_DIRNAME}/../scripts"
+
+setup() {
+  tmux -L "$COCKPIT_SOCKET" -f /dev/null new-session -d -s base -x 200 -y 50
+}
+
+teardown() {
+  tmux -L "$COCKPIT_SOCKET" kill-server 2>/dev/null || true
+}
+
+@test "topbar is empty when nothing is configured" {
+  run bash "$SCRIPTS/topbar.sh"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "topbar shows an inline reminder" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders "ship the PR"
+  run bash "$SCRIPTS/topbar.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ship the PR"* ]]
+}
+
+@test "topbar shows file reminders, skipping # comments and blank lines" {
+  f="$BATS_TEST_TMPDIR/reminders.txt"
+  printf '# a comment\nstandup at 10\n\ndeploy widget\n' > "$f"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders-file "$f"
+  run bash "$SCRIPTS/topbar.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"standup at 10"* ]]
+  [[ "$output" == *"deploy widget"* ]]
+  [[ "$output" != *"a comment"* ]]
+}
+
+@test "topbar shows file and inline reminders together" {
+  f="$BATS_TEST_TMPDIR/reminders.txt"
+  printf 'from the file\n' > "$f"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders-file "$f"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders "from inline"
+  run bash "$SCRIPTS/topbar.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"from the file"* ]]
+  [[ "$output" == *"from inline"* ]]
+}
+
+@test "cockpit.tmux with @cockpit-topbar on sets status to 2" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-topbar on
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status
+  [ "$output" = "2" ]
+}
