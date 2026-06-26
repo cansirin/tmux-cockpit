@@ -26,7 +26,7 @@ inline="$(_tm show-option -gqv @cockpit-reminders 2>/dev/null)"
 # the [S] sessions; separators stay dim. The accent is a fixed 256-palette colour
 # (not a theme-remapped 0–15 slot), matching session-list.sh's colour note. No
 # marker here; the caller's [R] tag labels the line.
-accent=colour150   # the [R] legend colour — keep in sync with the R tag in cockpit.tmux
+accent="$(cockpit_opt @cockpit-color-reminders colour150)"   # the [R] legend colour
 sep=''
 for it in "${items[@]}"; do
   printf '%s#[fg=%s]%s#[default]' "$sep" "$accent" "$it"

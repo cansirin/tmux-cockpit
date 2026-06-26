@@ -11,6 +11,15 @@ _tm() {
   fi
 }
 
+# cockpit_opt @option DEFAULT -> the global option's value, or DEFAULT when it is
+# unset or empty. The single source of truth for a tunable, so cockpit.tmux and
+# the render scripts read the same value (and the same default) for a given knob.
+cockpit_opt() {
+  local v
+  v="$(_tm show-option -gqv "$1" 2>/dev/null)"
+  printf '%s' "${v:-$2}"
+}
+
 # cockpit_session_name PATH -> a unique, tmux-safe session name.
 # Folders named monorepo* collide across projects (acme/monorepo vs
 # globex/monorepo), so prefix those with their parent dir; everything else

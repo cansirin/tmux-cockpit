@@ -26,6 +26,13 @@ teardown() {
   [[ "$output" == *"ship the PR"* ]]
 }
 
+@test "topbar honors @cockpit-color-reminders" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders "ship the PR"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-reminders colour99
+  run bash "$SCRIPTS/topbar.sh"
+  [[ "$output" == *"fg=colour99"* ]]   # the configured accent, not the default
+}
+
 @test "topbar shows file reminders, skipping # comments and blank lines" {
   f="$BATS_TEST_TMPDIR/reminders.txt"
   printf '# a comment\nstandup at 10\n\ndeploy widget\n' > "$f"

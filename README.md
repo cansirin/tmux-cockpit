@@ -66,6 +66,14 @@ set -g @cockpit-reminders-file "~/.config/tmux/reminders.txt"
 # and/or inline reminders shown alongside the file's
 set -g @cockpit-reminders "ship the PR"
 
+# retune the status-bar section colors (any tmux colour; defaults shown). These
+# are the [S] sessions and [R] reminders accents + the dark ink on their chips.
+# (The bar background and the current-window colour are your own native tmux
+# options — `status-style` and `window-status-current-format`.)
+set -g @cockpit-color-sessions  colour111   # [S] accent: tag + session text + active chip
+set -g @cockpit-color-reminders colour150   # [R] accent: tag + reminder text
+set -g @cockpit-color-ink       colour235   # dark text on the filled [S]/[R] chips
+
 # add your own entries to the prefix+Space menu: "label" key "command" ...
 set -g @cockpit-menu-extra '"deploy" G "run-shell ~/bin/deploy"  "kill server" K "kill-server"'
 ```
