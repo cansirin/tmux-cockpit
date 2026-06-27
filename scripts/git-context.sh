@@ -21,7 +21,7 @@ if up="$(git -C "$path" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}
   read -r ahead behind <<<"$(git -C "$path" rev-list --left-right --count "HEAD...$up" 2>/dev/null)"
 fi
 
-gcol="$(cockpit_opt @cockpit-color-git colour179)"   # [G] accent
+gcol="$(cockpit_opt @cockpit-color-git colour175)"   # [G] accent
 ink="$(cockpit_opt @cockpit-color-ink colour235)"    # dark text on the chip
 
 ind=""
