@@ -18,7 +18,7 @@
 #   @cockpit-color-sessions  [S] accent: tag bg + session text + active chip (default colour111)
 #   @cockpit-color-reminders [R] accent: tag bg + reminder text            (default colour150)
 #   @cockpit-color-ink  dark text on the filled [S]/[R]/[G] chips          (default colour235)
-#   @cockpit-color-git  [G] accent: tag bg + branch text                   (default colour179)
+#   @cockpit-color-git  [G] accent: tag bg + branch text                   (default colour175)
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS="$CURRENT_DIR/scripts"
