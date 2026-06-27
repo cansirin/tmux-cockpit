@@ -20,7 +20,9 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `prefix + Space` → `H` | **handoff brief** — a re-orientation snapshot (HEAD, recent commits, open PRs, worktrees) |
 | `prefix + Space` → `w` | **worktree status** — which worktrees are merged (safe to prune) vs still unmerged |
 | `prefix + Space` → `e` | **edit reminders** — pop open the reminders file in `$EDITOR` |
-| status bar | a **labelled legend** — `[S]` sessions · centred window list · `[R]` reminders (its own row), each a colored section tag |
+| `prefix + Space` → `a` | **add reminder** — type a line, it's appended to the reminders file (quick capture) |
+| status bar | a **labelled legend** — `[S]` sessions · `[G]` git context · centred window list · `[R]` reminders (its own row), each a colored section tag |
+| `[G]` git context | active pane's **branch + dirty/ahead/behind** — vanishes outside a repo |
 | reminders | a **`[R]` row** of inline notes and/or a file you keep updated — appears automatically when configured |
 | open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
 
@@ -72,7 +74,8 @@ set -g @cockpit-reminders "ship the PR"
 # options — `status-style` and `window-status-current-format`.)
 set -g @cockpit-color-sessions  colour111   # [S] accent: tag + session text + active chip
 set -g @cockpit-color-reminders colour150   # [R] accent: tag + reminder text
-set -g @cockpit-color-ink       colour235   # dark text on the filled [S]/[R] chips
+set -g @cockpit-color-git       colour179   # [G] accent: tag + branch text
+set -g @cockpit-color-ink       colour235   # dark text on the filled [S]/[R]/[G] chips
 
 # add your own entries to the prefix+Space menu: "label" key "command" ...
 set -g @cockpit-menu-extra '"deploy" G "run-shell ~/bin/deploy"  "kill server" K "kill-server"'

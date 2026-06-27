@@ -56,7 +56,14 @@ teardown() {
   [[ "$output" == *"reload config"* ]]   # another restored default entry
   [[ "$output" == *"launch DUO here"* ]] # the built-in duo launcher entry
   [[ "$output" == *"edit reminders"* ]]  # the reminders editor entry
+  [[ "$output" == *"add reminder"* ]]    # the quick-capture entry
   [[ "$output" == *"hello extra"* ]]     # the user-supplied extra entry
+}
+
+@test "status-left wires in the [G] git context" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-left
+  [[ "$output" == *"git-context.sh"* ]]
 }
 
 @test "duo launches a two-pane session in the given repo" {

@@ -76,3 +76,18 @@ teardown() {
   EDITOR=true bash "$SCRIPTS/edit-reminders.sh"
   [ -f "$f" ]
 }
+
+@test "add-reminder appends a captured line to the reminders file" {
+  f="$BATS_TEST_TMPDIR/sub/reminders.txt"   # nested dir that does not exist yet
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders-file "$f"
+  bash "$SCRIPTS/add-reminder.sh" call the bank
+  run cat "$f"
+  [[ "$output" == *"call the bank"* ]]
+}
+
+@test "add-reminder ignores empty input" {
+  f="$BATS_TEST_TMPDIR/reminders.txt"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders-file "$f"
+  bash "$SCRIPTS/add-reminder.sh" "   "
+  [ ! -s "$f" ]   # file stays empty (no whitespace-only line appended)
+}

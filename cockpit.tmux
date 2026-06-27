@@ -17,7 +17,8 @@
 #   @cockpit-reminders  inline reminder(s) shown on the [R] row alongside the file's
 #   @cockpit-color-sessions  [S] accent: tag bg + session text + active chip (default colour111)
 #   @cockpit-color-reminders [R] accent: tag bg + reminder text            (default colour150)
-#   @cockpit-color-ink  dark text on the filled [S]/[R] chips              (default colour235)
+#   @cockpit-color-ink  dark text on the filled [S]/[R]/[G] chips          (default colour235)
+#   @cockpit-color-git  [G] accent: tag bg + branch text                   (default colour179)
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS="$CURRENT_DIR/scripts"
@@ -46,6 +47,7 @@ menu=(
   "rename session"    R  "command-prompt -I '#S' 'rename-session %%'"
   "detach"            d  "detach-client"
   ""
+  "add reminder"      a  "command-prompt -p 'reminder:' \"run-shell '$SCRIPTS/add-reminder.sh %%'\""
   "edit reminders"    e  "display-popup -E -w 70% -h 60% '$SCRIPTS/edit-reminders.sh'"
   "reload config"     r  "source-file ~/.tmux.conf ; display 'config reloaded'"
 )
@@ -77,7 +79,9 @@ c_reminders="$(cockpit_opt @cockpit-color-reminders colour150)"
 c_ink="$(cockpit_opt @cockpit-color-ink colour235)"
 s_tag="#[fg=$c_ink,bg=$c_sessions,bold] S #[default]"
 r_tag="#[fg=$c_ink,bg=$c_reminders,bold] R #[default]"
-_tm set -g status-left "$s_tag #($SCRIPTS/session-list.sh)"
+# [S] sessions, then [G] git context for the active pane's repo (git-context.sh
+# self-renders its [G] chip only inside a work tree, so it vanishes elsewhere).
+_tm set -g status-left "$s_tag #($SCRIPTS/session-list.sh)  #($SCRIPTS/git-context.sh '#{pane_current_path}')"
 _tm set -g status-left-length 400
 
 # reminders row (row 1) — only when configured; the [R] tag makes it self-evident
