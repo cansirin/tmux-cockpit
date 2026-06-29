@@ -36,11 +36,16 @@ Read it top to bottom, confirm you've read it, then greet your sibling.
   flight at once. If a task needs both, split it or sequence it.
 - When the shared branch moves under you, **sync and re-verify** before pushing.
 
-## 3. Delegate the heavy lifting
+## 3. Delegate the heavy lifting — default to subagents
 
-- **The pane orchestrates; let background workers do the bulk edit.** Hand a
-  worker a crisp brief (the goal + how you'll know it's done) and integrate its
-  result. Keep the pane free to coordinate and review.
+- **The pane orchestrates; subagents do the bulk work.** Your default for any
+  non-trivial task (research, coding, audits, file edits) is to spawn an Agent,
+  not to execute it yourself. Hand it a crisp brief (the goal + how you'll know
+  it's done) and integrate its result. Keep the pane free to coordinate and review.
+- **Parallel when independent.** If two tasks don't depend on each other, spawn
+  both agents in the same turn — don't serialize work that can race.
+- **One agent per concern.** Don't bundle unrelated tasks into one agent. A
+  focused brief produces a focused result; a bundle produces an unfocused one.
 - When you compare a worker's branch, diff it against its **merge-base**, not the
   tip of the shared branch, if that branch moved underneath it.
 
@@ -83,7 +88,7 @@ Read it top to bottom, confirm you've read it, then greet your sibling.
 
 ---
 
-**In one line:** disjoint lanes · workers do the bulk · the *other* pane reviews
+**In one line:** disjoint lanes · subagents do the bulk (parallel when independent) · the *other* pane reviews
 and signs off · one merger · never auto-merge the sensitive stuff · errors are
 loud · re-orient each other after a reset.
 
