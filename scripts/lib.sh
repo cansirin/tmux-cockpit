@@ -46,10 +46,8 @@ cockpit_duo_name() {
 # protocol to read. Pure string assembly (unit-tested); the caller send-keys it.
 cockpit_duo_brief() {
   local self="$1" sib="$2" sibpane="$3" protocol="$4"
-  printf '%s' "You are pane $self of a coordinated Claude duo working this repo. \
-FIRST read $protocol and follow it for the whole session. Your sibling is pane \
-$sib at tmux id $sibpane — message it with: tmux send-keys -t $sibpane -l \
-\"$self: <msg>\" then tmux send-keys -t $sibpane Enter. Once you've read the \
-protocol, greet your sibling ($sib) so you both confirm the channel works, then \
-wait for the human's task."
+  printf '%s' "You are pane $self in a Claude duo. Read $protocol and follow it. \
+Sibling: $sib at $sibpane — reach it with: tmux send-keys -t $sibpane -l \"$self: <msg>\" Enter. \
+Default to subagents for all real work; your job is to orchestrate, not execute. \
+Greet your sibling, then wait for the human."
 }
