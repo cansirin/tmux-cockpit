@@ -28,13 +28,13 @@ setup() {
   run cockpit_duo_brief 1.1 1.2 %12 /tmp/duo-protocol.md
   [ "$status" -eq 0 ]
   [[ "$output" == *"pane 1.1"* ]]
-  [[ "$output" == *"sibling is pane 1.2"* ]]
+  [[ "$output" == *"Sibling: 1.2"* ]]
   [[ "$output" == *"%12"* ]]
   [[ "$output" == *"/tmp/duo-protocol.md"* ]]
 }
 
 @test "the brief tells the pane to read the protocol first" {
   run cockpit_duo_brief 1.2 1.1 %7 /x/p.md
-  [[ "$output" == *"FIRST read"* ]]
-  [[ "$output" == *"greet your sibling"* ]]
+  [[ "$output" == *"Read /x/p.md and follow it"* ]]
+  [[ "$output" == *"Greet your sibling"* ]]
 }
