@@ -25,6 +25,7 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `[G]` git context | active pane's **branch + dirty/ahead/behind** — vanishes outside a repo |
 | reminders | a **`[R]` row** of inline notes and/or a file you keep updated — appears automatically when configured |
 | open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
+| every pane | a **titled border bar** — session name · pane title, live-updated by whatever's running (Claude, vim, …) |
 
 Session names are made collision-proof automatically (two folders both named
 `monorepo`? → `parentA-monorepo`, `parentB-monorepo`).
@@ -131,6 +132,21 @@ bats tests/        # needs: bats, tmux, fzf, jq
 ```
 Unit tests cover session-name collision handling; integration tests run on an
 isolated tmux socket (your real sessions are never touched). CI runs them on every push.
+
+## Titled pane borders without the plugin
+
+The titled border bar is just two tmux options — no scripts, no plugin. Drop
+this in any `~/.tmux.conf` to get it standalone:
+
+```tmux
+set -g pane-border-status top
+set -g pane-border-format ' #{session_name} · #{pane_title} '
+```
+
+`#{session_name}` is read live from the format, so there is nothing to seed per
+pane; `#{pane_title}` is overridden by whatever program runs in the pane. Cockpit
+ships these as a global default and its layouts (duo, default) refine them at
+session/window scope.
 
 ## How it works
 

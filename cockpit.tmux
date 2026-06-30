@@ -66,6 +66,14 @@ _tm "${menu[@]}"
 _tm bind f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
 _tm bind -n C-f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
 
+# Titled pane borders for every session. Global default (lowest priority), so the
+# layouts that set their own scoped format win where they apply: duo (session
+# scope) and the default cockpit layout (window scope) keep their distinct bars;
+# everything else falls back to this one. #{session_name} is read live from the
+# format, so no per-pane select-pane -T seed is needed.
+_tm set -g pane-border-status top
+_tm set -g pane-border-format ' #{session_name} · #{pane_title} '
+
 # Two-row labelled status. The main row spreads three groups space-between
 # (status-justify centre, set in user config): [S] sessions on the left, the
 # window list centred, the prefix/menu hint (status-right) on the right. The
