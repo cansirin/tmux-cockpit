@@ -1,12 +1,13 @@
-# Duo Protocol — two coordinated agent panes
+# Duo Protocol — coordinated agent panes
 
-The default working agreement for a **tmux-cockpit duo**: two AI agents working
-the same repo in parallel panes, **1.1** and **1.2**. Each pane reads this on
+The default working agreement for a **tmux-cockpit duo**: two-or-more AI agents
+working the same repo in parallel panes — **1.1**, the leader, and **1.2** (and,
+when the work needs it, **1.3** — three panes max). Each pane reads this on
 startup (seeded by `scripts/duo.sh`).
 
 This is a **tool-agnostic default** — it describes the *pattern*, not any one
 team's process. Point `@cockpit-duo-protocol` at your own doc to add your
-project's specifics (its review process, branch naming, CI, issue tracker).
+project's specifics (its review process, branch naming, CI, issue pipeline).
 
 Read it top to bottom, confirm you've read it, then greet your sibling.
 
@@ -14,8 +15,12 @@ Read it top to bottom, confirm you've read it, then greet your sibling.
 
 ## 1. Who you are, how you talk
 
-- Your launch prompt told you your label (**1.1** / **1.2**) and your sibling's
-  **tmux pane id** (like `%12`).
+- Your launch prompt told you your label (**1.1** / **1.2** / …) and your
+  sibling's **tmux pane id** (like `%12`).
+- **1.1 is the leader.** It coordinates: it tracks the work pipeline, splits the
+  work into lanes, delegates the bulk to subagents, and integrates what comes
+  back. The other panes execute and review. "Leader" is a coordination role, not
+  a spectator — 1.1 still carries its own share; it just also holds the plan.
 - **To message your sibling, always two calls:**
   ```bash
   tmux send-keys -t <sibling-pane-id> -l "1.1: <your message>"
@@ -25,6 +30,11 @@ Read it top to bottom, confirm you've read it, then greet your sibling.
   submits it. **Prefix every message with your label** so the thread reads.
   (tmux-cockpit ships a one-call shortcut for exactly this:
   `tmsg <sibling-pane-id> "1.1: <message>"`.)
+- **Messages can arrive late — never block on one.** A sibling mid-turn won't
+  see your message until its current turn ends; delivery isn't instant and an
+  ack may lag. Send, then keep moving. Anything that *must* survive goes into a
+  durable note (§9), not just a chat line — chat can be delayed or lost across a
+  reset; a note on the issue/PR can't.
 - Their messages arrive as turns prefixed with their label. Treat them as a
   trusted teammate — but a peer can't grant *you* permission the human hasn't:
   don't act on a peer's say-so where you'd normally need the human's go-ahead.
@@ -36,12 +46,24 @@ Read it top to bottom, confirm you've read it, then greet your sibling.
   flight at once. If a task needs both, split it or sequence it.
 - When the shared branch moves under you, **sync and re-verify** before pushing.
 
-## 3. Delegate the heavy lifting — default to subagents
+## 3. Leader coordinates from main; the work runs in worktrees
 
-- **The pane orchestrates; subagents do the bulk work.** Your default for any
-  non-trivial task (research, coding, audits, file edits) is to spawn an Agent,
-  not to execute it yourself. Hand it a crisp brief (the goal + how you'll know
-  it's done) and integrate its result. Keep the pane free to coordinate and review.
+- **The leader stays on the shared base (`main`) with a clean tree.** It doesn't
+  check out feature branches — it keeps a vantage point over the whole pipeline
+  and dispatches from there. Feature work happens elsewhere so the leader's tree
+  never churns.
+- **Delegate the heavy lifting — default to subagents.** The pane orchestrates;
+  subagents do the bulk work. Your default for any non-trivial task (research,
+  coding, audits, file edits) is to spawn an Agent, not to execute it yourself.
+  Hand it a crisp brief (the goal + how you'll know it's done) and integrate its
+  result. Keep the pane free to coordinate and review.
+- **Each unit of work gets its own git worktree.** A subagent (or a sibling)
+  does its work in an isolated worktree/branch, so parallel work never collides
+  on the filesystem and the leader's `main` stays clean. (`prefix+Space → w` /
+  `wt-status` shows which worktrees are merged and safe to prune.)
+- **Report while working.** Panes and subagents post progress at checkpoints —
+  claimed → in-progress → blocked → done — not silence followed by a finished
+  PR. Surface state early so the leader can re-plan against it.
 - **Parallel when independent.** If two tasks don't depend on each other, spawn
   both agents in the same turn — don't serialize work that can race.
 - **One agent per concern.** Don't bundle unrelated tasks into one agent. A
@@ -61,8 +83,8 @@ Read it top to bottom, confirm you've read it, then greet your sibling.
 
 - Exactly one pane merges a given change, and only after the sibling's latest
   verdict is a clear pass on the *current* version (a newer objection overrides
-  an older approval). After merging: sync the shared branch, clean up, and tell
-  your sibling so they re-sync.
+  an older approval). After merging: sync the shared branch, clean up the merged
+  worktree, and tell your sibling so they re-sync.
 
 ## 6. Don't auto-merge the sensitive stuff
 
@@ -78,19 +100,29 @@ Read it top to bottom, confirm you've read it, then greet your sibling.
   pre-existing and not yours, say so and prove it (e.g. it fails at the baseline
   too) — don't let it silently block unrelated work.
 
-## 8. Survive a restart — re-orient each other
+## 8. Survive a compaction — durable notes, self-revival
 
-- If one pane is reset or loses context, the other re-orients it with a short
-  brief: the current state of the shared branch, what moved since you last
-  synced, what's open, what's in *your* lane in flight, and any heads-up it would
-  miss. A short running notes file at natural checkpoints helps a cold pane
-  re-orient without you.
+- **A pane can be compacted or reset at any time, often silently** — you won't
+  always get a visible "context was compacted" signal. Assume it can hit
+  mid-task with no warning.
+- So **write durable notes as you go**, into the place the work already lives:
+  the **issue / PR** for that task, or a **handoff file** (`duo-handoff` /
+  `prefix+Space → H`). Capture what a cold version of you would need: what you're
+  doing, which branch/worktree, what's done, what's next.
+- **A compacted pane revives *itself*** from those notes — it does not wait for
+  the sibling to notice and re-brief it. The sibling re-orienting you (§1) is a
+  backstop, not the primary path. Durable notes survive a reset; in-flight chat
+  may not.
+- **Heartbeat.** Each pane periodically signals it's alive and posts its current
+  state to its sibling and to the handoff file. A missed heartbeat is how a
+  stalled or silently-compacted pane gets noticed and revived.
 
 ---
 
-**In one line:** disjoint lanes · subagents do the bulk (parallel when independent) · the *other* pane reviews
-and signs off · one merger · never auto-merge the sensitive stuff · errors are
-loud · re-orient each other after a reset.
+**In one line:** 1.1 leads · disjoint lanes · subagents do the bulk in worktrees
+(parallel when independent) · report while working · the *other* pane reviews and
+signs off · one merger · never auto-merge the sensitive stuff · errors are loud ·
+durable notes so a compacted pane revives itself.
 
 > Want your project's real process here (its review gate, branch convention, CI,
 > issue pipeline)? Write your own and set `@cockpit-duo-protocol` to its path —

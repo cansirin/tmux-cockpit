@@ -83,6 +83,24 @@ teardown() {
   [[ "$output" == *"1.2"* ]]
 }
 
+@test "duo launches a three-pane session when @cockpit-duo-panes is 3" {
+  proj="$BATS_TEST_TMPDIR/trioproj"
+  mkdir -p "$proj"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-duo-boot-wait 0
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-duo-panes 3
+  TMUX="fake" bash "$SCRIPTS/duo.sh" "$proj" 2>/dev/null || true
+  run tmux -L "$COCKPIT_SOCKET" list-panes -t trioproj-duo
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 3 ]
+  run tmux -L "$COCKPIT_SOCKET" list-panes -t trioproj-duo -F '#{pane_title}'
+  [[ "$output" == *"1.1"* ]]
+  [[ "$output" == *"1.2"* ]]
+  [[ "$output" == *"1.3"* ]]
+  # reset so later tests default back to two panes
+  tmux -L "$COCKPIT_SOCKET" set -gu @cockpit-duo-panes
+}
+
 @test "duo re-focuses an existing session instead of spawning a second" {
   proj="$BATS_TEST_TMPDIR/dup"
   mkdir -p "$proj"
