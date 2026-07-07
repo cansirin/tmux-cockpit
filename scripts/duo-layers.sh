@@ -51,8 +51,11 @@ if [ -n "${COCKPIT_DUO_LAYERS_PICK:-}" ] && [ -n "${COCKPIT_SOCKET:-}" ]; then
   exit 0
 fi
 
-# No tty (e.g. run headless) or no fzf: can't prompt, so launch plain, not block.
-[ -t 0 ] && [ -t 1 ] || exit 0
+# Need the controlling terminal to draw the picker. Do NOT gate on stdout being a
+# tty: the caller captures our stdout (`sel=$(duo-layers.sh)`), so stdout is a
+# pipe by design. fzf renders on /dev/tty and writes only the selection to
+# stdout, so gate on /dev/tty being usable. No terminal (headless) -> launch plain.
+{ [ -r /dev/tty ] && [ -w /dev/tty ]; } || exit 0
 command -v fzf >/dev/null 2>&1 || exit 0
 
 # Preview the layer's first comment line (its one-line description) if present.
