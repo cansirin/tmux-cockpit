@@ -40,7 +40,11 @@ focus() {
       || echo "duo: '$name' is ready — switch with: tmux switch-client -t $name"
   fi
 }
-if _tm has-session -t="$name" 2>/dev/null; then
+# "=$name" forces an exact match (a bare target prefix-matches in tmux).
+if _tm has-session -t "=$name" 2>/dev/null; then
+  # Claim a pre-existing/unstamped duo on re-focus so it isn't a hijack magnet;
+  # harmless when it's already ours. resolve_name guarantees $name is ours here.
+  _tm set -t "$name" @cockpit-path "$target"
   focus
   exit 0
 fi

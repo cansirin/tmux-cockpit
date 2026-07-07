@@ -23,11 +23,9 @@ base="$(cockpit_session_name "$selected")"
 name="$(cockpit_resolve_name "$base" "$selected")"
 
 # Create the session (detached) if needed, then apply a layout (once, on create).
-if ! _tm has-session -t="$name" 2>/dev/null; then
+# "=$name" forces an exact match so a prefix sibling (e.g. a "-duo") can't answer.
+if ! _tm has-session -t "=$name" 2>/dev/null; then
   _tm new-session -ds "$name" -c "$selected"
-  # Record the repo path so a same-basename project elsewhere resolves to its own
-  # session instead of hijacking this one (cockpit_resolve_name reads this back).
-  _tm set -t "$name" @cockpit-path "$selected"
 
   layouts_dir="$(_tm show-option -gqv @cockpit-layouts 2>/dev/null)"
   layouts_dir="${layouts_dir/#\~/$HOME}"
@@ -38,6 +36,13 @@ if ! _tm has-session -t="$name" 2>/dev/null; then
     "$SCRIPT_DIR/layout-default.sh" "$name" "$selected" "$main_cmd"
   fi
 fi
+
+# Record the repo path — on create AND on reuse, so a session made before this
+# existed (or by hand) gets claimed on first touch instead of staying a nameless
+# hijack magnet for a same-basename repo. cockpit_resolve_name only ever returns
+# a name that is free, ours, or unstamped, so this never overwrites another
+# repo's stamp.
+_tm set -t "$name" @cockpit-path "$selected"
 
 # Attach (outside tmux) or switch (inside / from the popup).
 if [[ -z "${TMUX:-}" ]]; then

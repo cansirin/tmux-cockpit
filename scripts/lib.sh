@@ -61,7 +61,10 @@ cockpit_name_hash() {
 # the match to work (a legacy session with no recorded path is treated as ours).
 cockpit_resolve_name() {
   local base="$1" path="$2"
-  if ! _tm has-session -t="$base" 2>/dev/null; then
+  # "=$base" forces an EXACT session-name match. A bare target prefix-matches in
+  # tmux, so a lone "app-duo" would otherwise answer a query for "app" and
+  # wrongly disambiguate the plain session — anchor it.
+  if ! _tm has-session -t "=$base" 2>/dev/null; then
     printf '%s' "$base"; return
   fi
   local recorded
