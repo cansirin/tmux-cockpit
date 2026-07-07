@@ -156,13 +156,20 @@ cockpit_duo_layer_dirs() {
 # `<name>.layer` found across DIRs, with `#`-comments and blank lines stripped and
 # the surviving lines joined by "; ". Empty output + non-zero status if not found.
 cockpit_duo_layer_seed() {
-  local name="$1" dir file line seed=""
+  local name="$1" dir file line trimmed seed=""
   shift
+  # NAME is interpolated into a path, so reject anything that could escape the
+  # layer dir (slash, ..) or isn't a plain layer name — a hard refusal, not a
+  # sanitize, so a bad name never silently reads some other file.
+  case "$name" in ''|*/*|*..*|*[!a-zA-Z0-9._-]*) return 1 ;; esac
   for dir in "$@"; do
     file="$dir/$name.layer"
     [ -f "$file" ] || continue
     while IFS= read -r line || [ -n "$line" ]; do
-      case "$line" in ''|'#'*) continue ;; esac
+      # Strip leading whitespace before the comment/blank test so an INDENTED
+      # `# comment` is dropped too; a mid-line `#` (e.g. "fix issue #42") stays.
+      trimmed="${line#"${line%%[![:space:]]*}"}"
+      case "$trimmed" in ''|'#'*) continue ;; esac
       if [ -z "$seed" ]; then seed="$line"; else seed="$seed; $line"; fi
     done < "$file"
     printf '%s' "$seed"

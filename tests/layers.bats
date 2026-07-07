@@ -29,6 +29,25 @@ setup() {
   [ -z "$output" ]
 }
 
+@test "an indented comment line is stripped but a mid-line # is kept" {
+  dir="$BATS_TEST_TMPDIR/layers"
+  mkdir -p "$dir"
+  printf '   # indented comment\nfix issue #42 now\n' > "$dir/hash.layer"
+  run cockpit_duo_layer_seed hash "$dir"
+  [ "$status" -eq 0 ]
+  [ "$output" = "fix issue #42 now" ]
+}
+
+@test "a path-traversal name is refused (non-zero, no read)" {
+  # NAME is interpolated into a path — a name with / or .. must never read a file
+  # outside the layer dirs. The guard fires before any filesystem touch.
+  run cockpit_duo_layer_seed "../../etc/passwd" "$BATS_TEST_TMPDIR"
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+  run cockpit_duo_layer_seed "a/b" "$BATS_TEST_TMPDIR"
+  [ "$status" -ne 0 ]
+}
+
 @test "the first dir listed wins on a name clash (user shadows repo)" {
   a="$BATS_TEST_TMPDIR/a"; b="$BATS_TEST_TMPDIR/b"
   mkdir -p "$a" "$b"
@@ -65,6 +84,20 @@ setup() {
   # first line is the user dir, so it shadows the repo dir on a name clash
   [ "$(printf '%s\n' "$output" | sed -n 1p)" = "/my/layers" ]
   [[ "$output" == *"/layers"* ]]
+}
+
+# --- symlink resolution: invoked via a PATH symlink, lib.sh still resolves ---
+
+@test "duo-layers.sh invoked through a symlink still finds lib.sh" {
+  # `make install` symlinks duo-* into ~/.local/bin; a naive SCRIPT_DIR would look
+  # for lib.sh there. The link-walk must resolve back to the real scripts dir.
+  ln -s "${BATS_TEST_DIRNAME}/../scripts/duo-layers.sh" "$BATS_TEST_TMPDIR/duo-layers.sh"
+  # The test-only bypass proves the whole flow ran (dirs computed from lib.sh,
+  # names listed) without erroring on a missing lib.sh.
+  COCKPIT_SOCKET="cockpit-symlink-$$" COCKPIT_DUO_LAYERS_PICK="caveman" \
+    run "$BATS_TEST_TMPDIR/duo-layers.sh"
+  [ "$status" -eq 0 ]
+  [ "$output" = "caveman" ]
 }
 
 # --- integration: a selected layer reaches every pane's seeded brief ---

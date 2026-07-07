@@ -8,7 +8,16 @@
 # hands off to duo.sh — which does the actual create/re-focus/switch-client.
 # Zero layers -> the picker prints nothing and we launch a plain duo unchanged.
 set -uo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve through symlinks so the sibling scripts are found even when this is
+# invoked via a symlink on PATH (the `duo-*` install glob links it into
+# ~/.local/bin). `readlink -f` isn't portable to old macOS, so walk by hand.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  dir="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  case "$SOURCE" in /*) ;; *) SOURCE="$dir/$SOURCE" ;; esac  # relative → absolute
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
 target="${1:-$PWD}"
 
