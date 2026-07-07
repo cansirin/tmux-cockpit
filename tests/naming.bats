@@ -33,3 +33,26 @@ setup() {
   run cockpit_session_name "/home/u/My Project.v2"
   [ "$output" = "My_Project_v2" ]
 }
+
+@test "the base name is NOT unique across same-basename paths (resolver's job)" {
+  # documents the boundary: cockpit_session_name is readable, not injective —
+  # cockpit_resolve_name is what disambiguates at create time.
+  a="$(cockpit_session_name /home/u/work/app)"
+  b="$(cockpit_session_name /home/u/side/app)"
+  [ "$a" = "app" ]
+  [ "$a" = "$b" ]
+}
+
+@test "cockpit_name_hash is a stable 6-char hex tag" {
+  run cockpit_name_hash /home/u/work/app
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^[0-9a-f]{6}$ ]]
+}
+
+@test "cockpit_name_hash is deterministic per path and differs across paths" {
+  a="$(cockpit_name_hash /home/u/work/app)"
+  a2="$(cockpit_name_hash /home/u/work/app)"
+  b="$(cockpit_name_hash /home/u/side/app)"
+  [ "$a" = "$a2" ]
+  [ "$a" != "$b" ]
+}

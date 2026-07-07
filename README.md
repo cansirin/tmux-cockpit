@@ -27,8 +27,10 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
 | every pane | a **titled border bar** — session name · pane title, live-updated by whatever's running (Claude, vim, …) |
 
-Session names are made collision-proof automatically (two folders both named
-`monorepo`? → `parentA-monorepo`, `parentB-monorepo`).
+Session names stay readable but never collide: each session records its repo
+path, so a project keeps its plain name (`webapp`) and a *second* repo with the
+same folder name from a different path gets a short disambiguating tag
+(`webapp-3f2a1c`) instead of hijacking the first one's session.
 
 ## Install (TPM)
 

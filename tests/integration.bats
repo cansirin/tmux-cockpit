@@ -127,3 +127,52 @@ teardown() {
   run tmux -L "$COCKPIT_SOCKET" has-session -t myproj
   [ "$status" -eq 0 ]
 }
+
+@test "sessionizer re-focuses the same repo path instead of duplicating it" {
+  proj="$BATS_TEST_TMPDIR/reuse/app"
+  mkdir -p "$proj"
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$proj" 2>/dev/null || true
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$proj" 2>/dev/null || true
+  names="$(tmux -L "$COCKPIT_SOCKET" list-sessions -F '#{session_name}')"
+  [ "$(printf '%s\n' "$names" | grep -c '^app$')" -eq 1 ]
+  # the repo path is recorded so a same-basename repo elsewhere can tell them apart
+  run tmux -L "$COCKPIT_SOCKET" show-option -t app -qv @cockpit-path
+  [ "$output" = "$proj" ]
+}
+
+@test "two same-basename repos in different paths get distinct sessions" {
+  a="$BATS_TEST_TMPDIR/one/app"
+  b="$BATS_TEST_TMPDIR/two/app"
+  mkdir -p "$a" "$b"
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$a" 2>/dev/null || true
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$b" 2>/dev/null || true
+  names="$(tmux -L "$COCKPIT_SOCKET" list-sessions -F '#{session_name}')"
+  # first keeps the pretty base; second is disambiguated with a -<hash> tag
+  [ "$(printf '%s\n' "$names" | grep -c '^app$')" -eq 1 ]
+  [ "$(printf '%s\n' "$names" | grep -cE '^app-[0-9a-f]{6}$')" -eq 1 ]
+}
+
+@test "a prefix sibling (foo-duo) does not steal the plain foo session name" {
+  # regression: tmux prefix-matches a bare target, so has-session for "foo" used
+  # to answer true when only "foo-duo" existed — wrongly disambiguating "foo".
+  # The resolver anchors with "=foo", so a plain foo still gets its plain name.
+  proj="$BATS_TEST_TMPDIR/plain/foo"
+  mkdir -p "$proj"
+  tmux -L "$COCKPIT_SOCKET" new-session -ds foo-duo
+  tmux -L "$COCKPIT_SOCKET" set -t foo-duo @cockpit-path "/somewhere/else/foo"
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$proj" 2>/dev/null || true
+  run tmux -L "$COCKPIT_SOCKET" has-session -t "=foo"
+  [ "$status" -eq 0 ]   # a session named exactly "foo" was created, not "foo-<hash>"
+}
+
+@test "a legacy unstamped session is claimed on touch, not left a hijack magnet" {
+  # a session made before this fix (or by hand) has no @cockpit-path; opening its
+  # repo must stamp it, so a later same-basename repo disambiguates instead of
+  # silently reusing it.
+  proj="$BATS_TEST_TMPDIR/legacy/bar"
+  mkdir -p "$proj"
+  tmux -L "$COCKPIT_SOCKET" new-session -ds bar   # no @cockpit-path set
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$proj" 2>/dev/null || true
+  run tmux -L "$COCKPIT_SOCKET" show-option -t bar -qv @cockpit-path
+  [ "$output" = "$proj" ]
+}

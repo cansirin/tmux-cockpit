@@ -19,7 +19,7 @@ if ! target="$(cd "$target" 2>/dev/null && pwd)"; then
   exit 1
 fi
 
-name="$(cockpit_duo_name "$target")"
+name="$(cockpit_resolve_name "$(cockpit_duo_name "$target")" "$target")"
 
 cmd="$(_tm show-option -gqv @cockpit-main-cmd 2>/dev/null)"
 [ -z "$cmd" ] && cmd="claude"
@@ -40,7 +40,11 @@ focus() {
       || echo "duo: '$name' is ready — switch with: tmux switch-client -t $name"
   fi
 }
-if _tm has-session -t="$name" 2>/dev/null; then
+# "=$name" forces an exact match (a bare target prefix-matches in tmux).
+if _tm has-session -t "=$name" 2>/dev/null; then
+  # Claim a pre-existing/unstamped duo on re-focus so it isn't a hijack magnet;
+  # harmless when it's already ours. resolve_name guarantees $name is ours here.
+  _tm set -t "$name" @cockpit-path "$target"
   focus
   exit 0
 fi
@@ -52,6 +56,9 @@ case "$npanes" in 2|3) ;; *) npanes=2 ;; esac
 
 # Side-by-side panes, all in the repo (one new-session + npanes-1 splits).
 _tm new-session -ds "$name" -c "$target"
+# Record the repo path so a same-basename repo elsewhere resolves to its own duo
+# instead of re-focusing this one (cockpit_resolve_name reads this back).
+_tm set -t "$name" @cockpit-path "$target"
 i=1
 while [ "$i" -lt "$npanes" ]; do
   _tm split-window -h -t "$name" -c "$target"
