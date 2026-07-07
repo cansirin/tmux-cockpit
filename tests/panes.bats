@@ -92,7 +92,10 @@ _panecount() {
   [ "$n" -eq 3 ]
 }
 
-@test "an invalid --panes value falls back to 2" {
+@test "an invalid --panes value is ignored — the option stands" {
+  # A non-2|3 --panes value is dropped (not stored), so npanes falls through to
+  # @cockpit-duo-panes. That's sounder than forcing 2: garbage is ignored and the
+  # configured default wins. (A junk *option* is what the 2|3 normalization pins.)
   command -v tmux >/dev/null || skip "tmux not installed"
   export COCKPIT_SOCKET="cockpit-panes-bad-$$"
   repo="$BATS_TEST_TMPDIR/pbad"
@@ -106,7 +109,7 @@ _panecount() {
   [ "$status" -eq 0 ]
   n="$(_panecount "$repo")"
   tmux -L "$COCKPIT_SOCKET" kill-server 2>/dev/null || true
-  [ "$n" -eq 2 ]
+  [ "$n" -eq 3 ]   # bad --panes ignored; @cockpit-duo-panes (3) stands
 }
 
 @test "--panes with a non-digit next arg does not swallow the path" {
