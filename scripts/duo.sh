@@ -133,22 +133,23 @@ for lname in $layers; do
   if [ -z "$layer_seed" ]; then layer_seed="$s"; else layer_seed="$layer_seed; $s"; fi
 done
 
-# Seed the briefs once the command has booted. BACKGROUNDED so we never block
-# the caller — when launched from the prefix+Space menu (a run-shell), a
-# foreground sleep would freeze tmux for the whole boot wait. Sent literally
-# (-l) so nothing mangles the text; submitted with a separate Enter.
-{
-  sleep "$boot_wait"
-  i=1
-  while [ "$i" -le "$npanes" ]; do
-    pane="$(printf '%s\n' "$panes" | sed -n "${i}p")"
-    # shellcheck disable=SC2046  # word-splitting the sibling pairs is intentional
-    brief="$(cockpit_duo_brief "1.$i" "$protocol" $(duo_siblings "$i"))"
-    brief="$(cockpit_duo_compose_brief "$brief" "$layer_seed")"
-    _tm send-keys -t "$pane" -l "$brief"
-    _tm send-keys -t "$pane" Enter
-    i=$((i + 1))
-  done
-} >/dev/null 2>&1 &
+# Compute each pane's brief now (pane<TAB>brief per line) and hand the deferred
+# send to the tmux SERVER via run-shell -b. NOT a shell `&` job: the prefix+Space
+# launcher runs inside a display-popup, and a backgrounded shell job is killed
+# when the popup closes — before boot-wait elapses — so nothing would reach the
+# panes. A server-side run-shell job outlives the popup. Briefs are single-line,
+# so the tab delimiter is safe.
+briefs="$(mktemp "${TMPDIR:-/tmp}/cockpit-duo-briefs.XXXXXX")"
+tab="$(printf '\t')"
+i=1
+while [ "$i" -le "$npanes" ]; do
+  pane="$(printf '%s\n' "$panes" | sed -n "${i}p")"
+  # shellcheck disable=SC2046  # word-splitting the sibling pairs is intentional
+  brief="$(cockpit_duo_brief "1.$i" "$protocol" $(duo_siblings "$i"))"
+  brief="$(cockpit_duo_compose_brief "$brief" "$layer_seed")"
+  printf '%s%s%s\n' "$pane" "$tab" "$brief" >> "$briefs"
+  i=$((i + 1))
+done
+_tm run-shell -b "'$SCRIPT_DIR/duo-seed.sh' '$briefs' '$boot_wait'"
 
 focus
