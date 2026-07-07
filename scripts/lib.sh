@@ -41,13 +41,33 @@ cockpit_duo_name() {
   printf '%s-duo' "$(cockpit_session_name "$1")"
 }
 
-# cockpit_duo_brief SELF SIBLING_LABEL SIBLING_PANE PROTOCOL -> the bootstrap
-# prompt seeded into one duo pane: its label, how to reach its sibling, and the
-# protocol to read. Pure string assembly (unit-tested); the caller send-keys it.
+# cockpit_duo_brief SELF PROTOCOL  SIB_LABEL SIB_PANE [SIB_LABEL SIB_PANE ...]
+#   -> the bootstrap prompt seeded into one duo pane: its label, its role (1.1
+#   leads and coordinates; the others execute and review), how to reach each
+#   sibling, and the protocol to read. Variadic in the sibling pairs so a
+#   three-pane duo works (a pane then has two siblings). Pure string assembly
+#   (unit-tested); the caller send-keys it.
 cockpit_duo_brief() {
-  local self="$1" sib="$2" sibpane="$3" protocol="$4"
+  local self="$1" protocol="$2" role reach=""
+  shift 2
+  case "$self" in
+    1.1) role="You are the leader: track the work pipeline, split it into lanes, and delegate. Stay on the shared base and keep your tree clean. You are in the review ring too." ;;
+    *)   role="You execute and review: take a lane, do the work in its own worktree, and review the sibling the protocol's review ring assigns you." ;;
+  esac
+  while [ "$#" -ge 2 ]; do
+    reach="$reach Sibling: $1 at $2 — reach it with: tmux send-keys -t $2 -l \"$self: <msg>\" Enter."
+    shift 2
+  done
   printf '%s' "You are pane $self in a Claude duo. Read $protocol and follow it. \
-Sibling: $sib at $sibpane — reach it with: tmux send-keys -t $sibpane -l \"$self: <msg>\" Enter. \
-Default to subagents for all real work; your job is to orchestrate, not execute. \
+$role$reach \
+Default to subagents in worktrees for all real work; orchestrate, not execute. \
+Leave durable notes on the issue/PR or a handoff file so you can revive yourself after a compaction. \
 Greet your sibling, then wait for the human."
+}
+
+# cockpit_duo_heartbeat SELF STATE -> a one-line heartbeat a pane posts so a
+# stalled or silently-compacted sibling gets noticed (§8 of the protocol). The
+# timestamp is prepended by the caller (kept out so the line is unit-testable).
+cockpit_duo_heartbeat() {
+  printf 'heartbeat %s: %s' "$1" "${2:-alive}"
 }
