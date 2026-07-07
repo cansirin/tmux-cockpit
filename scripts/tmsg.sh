@@ -28,5 +28,22 @@ if [ -z "$pane" ] || [ "$#" -eq 0 ]; then
 fi
 
 msg="$*"
+
+# A duo label (1.2) is resolved through this session's registry to a pane id;
+# any other target (%12, session:win.pane) is passed to tmux untouched.
+if [[ "$pane" =~ ^1\.[0-9]+$ ]]; then
+  # A label is only meaningful relative to the caller's own duo. Without
+  # $TMUX_PANE we can't know which session that is — `display-message -t ""`
+  # would silently answer for the client's ACTIVE session and deliver to the
+  # wrong duo. Refuse rather than misroute.
+  if [ -z "${TMUX_PANE:-}" ]; then
+    echo "tmsg: can't resolve label '$pane' outside a tmux pane (no \$TMUX_PANE)" >&2
+    exit 3
+  fi
+  sess="$(_tm display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null)"
+  resolved="$(_tm show-option -t "$sess" -qv "@$(cockpit_duo_pane_key "$pane")" 2>/dev/null)"
+  [ -n "$resolved" ] && pane="$resolved"
+fi
+
 _tm send-keys -t "$pane" -l "$msg"
 _tm send-keys -t "$pane" Enter
