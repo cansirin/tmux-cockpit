@@ -17,10 +17,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # $COCKPIT_DUO_SELECTED env, which duo-launch.sh exports from the picker. Both
 # optional — no layers means the brief is byte-for-byte the pre-layers brief.
 layers="${COCKPIT_DUO_SELECTED:-}"
+# Launch-time pane-count override (duo-launch.sh's picker). Empty => fall through
+# to the @cockpit-duo-panes option below; a value wins over it.
+panes_arg=""
 path_arg=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --layers) layers="$2"; shift 2 ;;
+    # Only consume $2 when it's a real pane count; a non-2|3 value (e.g. a path) is
+    # NOT swallowed — drop the flag, leave the arg for the positional path.
+    --panes)  case "${2:-}" in 2|3) panes_arg="$2"; shift 2 ;; *) shift ;; esac ;;
     *)        path_arg="$1"; shift ;;
   esac
 done
@@ -62,8 +68,10 @@ if _tm has-session -t "=$name" 2>/dev/null; then
 fi
 
 # How many panes: 2 (default) or 3 — 1.1 leads, the rest execute + review. The
-# protocol caps a duo at three; anything else falls back to 2.
-npanes="$(_tm show-option -gqv @cockpit-duo-panes 2>/dev/null)"
+# protocol caps a duo at three; anything else falls back to 2. --panes (launch-time
+# picker) overrides the @cockpit-duo-panes option; absent it, the option is the
+# default. Both run through the same 2|3 guard so an odd value falls back to 2.
+npanes="${panes_arg:-$(_tm show-option -gqv @cockpit-duo-panes 2>/dev/null)}"
 case "$npanes" in 2|3) ;; *) npanes=2 ;; esac
 
 # Side-by-side panes, all in the repo (one new-session + npanes-1 splits).
