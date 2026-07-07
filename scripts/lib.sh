@@ -20,10 +20,12 @@ cockpit_opt() {
   printf '%s' "${v:-$2}"
 }
 
-# cockpit_session_name PATH -> a unique, tmux-safe session name.
-# Folders named monorepo* collide across projects (acme/monorepo vs
-# globex/monorepo), so prefix those with their parent dir; everything else
-# keeps its basename. ' ' '.' ':' are replaced with '_'.
+# cockpit_session_name PATH -> a readable, tmux-safe *base* name for PATH.
+# Keeps the basename so sessions read as their project. Folders named monorepo*
+# would otherwise all read as "monorepo", so those gain their parent dir for
+# legibility. ' ' '.' ':' become '_'. This is NOT guaranteed unique across paths
+# (two repos with the same basename produce the same base) — cockpit_resolve_name
+# is what enforces the path<->session bijection at create/switch time.
 cockpit_session_name() {
   local path="$1" base name
   base="$(basename "$path")"
@@ -34,11 +36,40 @@ cockpit_session_name() {
   printf '%s' "$name" | tr ' .:' '___'
 }
 
-# cockpit_duo_name PATH -> the session name for a two-pane Claude "duo" on PATH.
-# A "-duo" suffix on the normal session name, so a duo never collides with the
-# project's regular cockpit session.
+# cockpit_duo_name PATH -> the base name for a Claude "duo" on PATH: a "-duo"
+# suffix on the normal base name, so a duo never collides with the project's
+# regular cockpit session.
 cockpit_duo_name() {
   printf '%s-duo' "$(cockpit_session_name "$1")"
+}
+
+# cockpit_name_hash PATH -> a short, stable hex tag derived from PATH. Pure and
+# deterministic (CRC32 via cksum, low 24 bits) — same path always yields the same
+# tag, distinct paths practically never collide. Used only to disambiguate two
+# repos that share a base name; the readable base stays out front.
+cockpit_name_hash() {
+  local crc
+  crc="$(printf '%s' "$1" | cksum | awk '{print $1}')"
+  printf '%06x' "$((crc & 0xFFFFFF))"
+}
+
+# cockpit_resolve_name BASE PATH -> the session name to actually use for PATH.
+# Enforces the path<->session bijection: reuse BASE only when it's free or is
+# already this exact PATH (matched via the session's stored @cockpit-path); if
+# BASE is taken by a *different* path, fall back to "BASE-<hash>" so the two
+# never clobber each other. Callers must `set @cockpit-path PATH` on create for
+# the match to work (a legacy session with no recorded path is treated as ours).
+cockpit_resolve_name() {
+  local base="$1" path="$2"
+  if ! _tm has-session -t="$base" 2>/dev/null; then
+    printf '%s' "$base"; return
+  fi
+  local recorded
+  recorded="$(_tm show-option -t "$base" -qv @cockpit-path 2>/dev/null)"
+  if [ -z "$recorded" ] || [ "$recorded" = "$path" ]; then
+    printf '%s' "$base"; return
+  fi
+  printf '%s-%s' "$base" "$(cockpit_name_hash "$path")"
 }
 
 # cockpit_duo_brief SELF PROTOCOL  SIB_LABEL SIB_PANE [SIB_LABEL SIB_PANE ...]

@@ -127,3 +127,27 @@ teardown() {
   run tmux -L "$COCKPIT_SOCKET" has-session -t myproj
   [ "$status" -eq 0 ]
 }
+
+@test "sessionizer re-focuses the same repo path instead of duplicating it" {
+  proj="$BATS_TEST_TMPDIR/reuse/app"
+  mkdir -p "$proj"
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$proj" 2>/dev/null || true
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$proj" 2>/dev/null || true
+  names="$(tmux -L "$COCKPIT_SOCKET" list-sessions -F '#{session_name}')"
+  [ "$(printf '%s\n' "$names" | grep -c '^app$')" -eq 1 ]
+  # the repo path is recorded so a same-basename repo elsewhere can tell them apart
+  run tmux -L "$COCKPIT_SOCKET" show-option -t app -qv @cockpit-path
+  [ "$output" = "$proj" ]
+}
+
+@test "two same-basename repos in different paths get distinct sessions" {
+  a="$BATS_TEST_TMPDIR/one/app"
+  b="$BATS_TEST_TMPDIR/two/app"
+  mkdir -p "$a" "$b"
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$a" 2>/dev/null || true
+  TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$b" 2>/dev/null || true
+  names="$(tmux -L "$COCKPIT_SOCKET" list-sessions -F '#{session_name}')"
+  # first keeps the pretty base; second is disambiguated with a -<hash> tag
+  [ "$(printf '%s\n' "$names" | grep -c '^app$')" -eq 1 ]
+  [ "$(printf '%s\n' "$names" | grep -cE '^app-[0-9a-f]{6}$')" -eq 1 ]
+}
