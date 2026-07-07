@@ -16,7 +16,7 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `Ctrl-f` (no prefix) | floating fuzzy **project picker** — create-or-jump to any project's session, works even inside vim/claude |
 | `prefix + f` | same picker |
 | `prefix + Space` | **menu of everything** (split, zoom, jump, detach, all-keys) — recall, not memorize |
-| `prefix + Space` → `D` | **launch a Claude duo** — 2–3 coordinated AI panes (1.1 leads) in the current repo |
+| `prefix + Space` → `D` | **launch a Claude duo** — 2–3 coordinated AI panes (1.1 leads) in the current repo; asks which startup layers to run |
 | `prefix + Space` → `H` | **handoff brief** — a re-orientation snapshot (HEAD, recent commits, open PRs, worktrees) |
 | `prefix + Space` → `w` | **worktree status** — which worktrees are merged (safe to prune) vs still unmerged |
 | `prefix + Space` → `W` | **new worktree** — type a branch, get a worktree in a sibling dir |
@@ -80,6 +80,8 @@ set -g @cockpit-layouts "~/.config/tmux/layouts"
 set -g @cockpit-duo-protocol "~/.config/tmux/my-duo-protocol.md"
 set -g @cockpit-duo-boot-wait 8
 set -g @cockpit-duo-panes 3
+# extra dir of your own `<name>.layer` startup add-ons (shadow the shipped ones)
+set -g @cockpit-duo-layers "~/.config/tmux/duo-layers"
 
 # reminders: shown on their own [R] row (a second status line) whenever either of
 # these is set — no separate toggle. A file of reminders, one per line (blank
@@ -146,11 +148,37 @@ task, a pane for a teammate**. Add a third pane only for a long-lived lane that
 must review and be reviewed as a peer; for bounded, returns-once work, spawn a
 subagent instead.
 
+### Duo layers
+
+The brief above is the **base**, always on. A **layer** is an opt-in, composable
+add-on that seeds one extra startup instruction into every pane — a different axis
+than coordination. A layer is one file, `<name>.layer`, whose lines (minus `#`
+comments and blanks) are the seed; layers **stack** onto the base and onto each
+other, so you can multi-select. Two ship in [`layers/`](layers):
+
+- **`caveman`** — each pane runs `/caveman full` (a talk-terse style).
+- **`kampus`** — each pane is told to drive the kampus-pipeline workflow.
+
+Add your own by dropping a `<name>.layer` file — no code change. Point
+`@cockpit-duo-layers` (or `$COCKPIT_DUO_LAYERS`) at a directory of them; a
+same-named file there **shadows** the shipped one.
+
+```tmux
+set -g @cockpit-duo-layers "~/.config/tmux/duo-layers"
+```
+
+`prefix + Space → D` now opens a popup that **asks which layers to run** (fzf
+multi-select) before launching; the prompt is skipped when no layers exist, so a
+plain duo launches unchanged. Layers are per-duo (every pane gets the same set),
+not per-pane.
+
 **How the launch works** (for anyone extending it):
 
 1. `prefix + Space → D` fires the menu entry
-   `run-shell '<plugin>/scripts/duo.sh #{pane_current_path}'` — tmux expands the
-   current pane's path and runs `duo.sh` **headless on the server** (no tty).
+   `display-popup -E -d '#{pane_current_path}' '<plugin>/scripts/duo-launch.sh'`
+   — a popup (so the layer picker gets a real tty) whose `duo-launch.sh` runs the
+   picker, exports the chosen names as `$COCKPIT_DUO_SELECTED`, and `exec`s
+   `duo.sh` in the popup's own process so its `switch-client` has a live client.
 2. `duo.sh` names the session `<project>-duo` (`cockpit_duo_name`, which reuses
    the collision-proof `cockpit_session_name`). If it already exists, it just
    re-focuses and exits — never a second duo.
@@ -160,7 +188,8 @@ subagent instead.
 4. A **backgrounded** subshell waits `@cockpit-duo-boot-wait` seconds (so the
    launch never blocks tmux during boot), then `send-keys -l` each pane its
    brief from `cockpit_duo_brief` — its label, its role, every sibling's pane id,
-   and the protocol path — and submits it with a separate `Enter`.
+   and the protocol path, with any selected layers' seeds composed on
+   (`cockpit_duo_compose_brief`) — and submits it with a separate `Enter`.
 5. It `switch-client`s you to the session (or `attach` from a bare terminal).
    The agents read the protocol, greet each other over `send-keys`, and wait
    for your task.
@@ -197,7 +226,9 @@ session/window scope.
 - `scripts/sessionizer.sh` — the picker + create-or-switch logic
 - `scripts/session-list.sh` — renders the status-bar session list
 - `scripts/layout-default.sh` — the default cockpit layout
-- `scripts/duo.sh` — launches the 2-or-3-pane Claude duo (`duo-protocol.md` is the brief)
+- `scripts/duo.sh` — launches the 2-or-3-pane Claude duo (`duo-protocol.md` is the brief; composes any selected layers onto it)
+- `scripts/duo-launch.sh` — the popup entry for `prefix+Space → D`: pick layers, then `exec` `duo.sh`
+- `scripts/duo-layers.sh` — lists/fzf-multi-selects available `layers/*.layer` (user dir shadows the shipped ones)
 - `scripts/tmsg.sh` — `tmsg <pane|label> <msg>`: send a line to another pane in one call (label resolves via the duo registry; the `send-keys -l … ; send-keys Enter` two-step, wrapped)
 - `scripts/duo-handoff.sh` — prints the re-orientation brief (HEAD, commits, PRs, worktrees)
 - `scripts/duo-heartbeat.sh` — `duo-heartbeat <self> <sibling> [state]`: post an alive+state line to the durable notes file and the sibling

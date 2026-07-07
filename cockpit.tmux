@@ -40,7 +40,7 @@ menu=(
   "next / prev win"   "." "next-window"
   ""
   "JUMP to project"   f  "$picker"
-  "launch DUO here"   D  "run-shell '$SCRIPTS/duo.sh #{pane_current_path}'"
+  "launch DUO here"   D  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/duo-launch.sh'"
   "handoff brief"     H  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/duo-handoff.sh | less -R'"
   "worktree status"   w  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-status.sh | less -R'"
   "new worktree"      W  "command-prompt -p 'branch:' \"display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-new.sh %%'\""

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # tmux-cockpit shared helpers — sourced by the other scripts, unit-tested in tests/.
 
+# Where this lib lives (the scripts dir), so helpers can resolve repo-relative
+# paths (e.g. ../layers) regardless of the caller's cwd or which script sourced it.
+COCKPIT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # _tm [...] — run tmux, honoring an optional isolated socket so tests never touch
 # the user's real server. Set COCKPIT_SOCKET to use `tmux -L <socket>`.
 _tm() {
@@ -131,4 +135,50 @@ Greet your sibling, then wait for the human."
 # timestamp is prepended by the caller (kept out so the line is unit-testable).
 cockpit_duo_heartbeat() {
   printf 'heartbeat %s: %s' "$1" "${2:-alive}"
+}
+
+# --- duo layers: opt-in, composable startup add-ons seeded onto the base brief ---
+
+# cockpit_duo_layer_dirs -> the search path for `<name>.layer` files, one dir per
+# line. The user dir (from @cockpit-duo-layers / $COCKPIT_DUO_LAYERS) is printed
+# FIRST so it shadows the shipped repo `layers/` on a name clash (first hit wins
+# in cockpit_duo_layer_seed). The repo dir is relative to the scripts dir so it
+# resolves wherever the plugin is checked out.
+cockpit_duo_layer_dirs() {
+  local user
+  user="${COCKPIT_DUO_LAYERS:-$(_tm show-option -gqv @cockpit-duo-layers 2>/dev/null)}"
+  user="${user/#\~/$HOME}"
+  [ -n "$user" ] && printf '%s\n' "$user"
+  printf '%s\n' "$COCKPIT_LIB_DIR/../layers"
+}
+
+# cockpit_duo_layer_seed NAME DIR... -> the seed line(s) for layer NAME: the first
+# `<name>.layer` found across DIRs, with `#`-comments and blank lines stripped and
+# the surviving lines joined by "; ". Empty output + non-zero status if not found.
+cockpit_duo_layer_seed() {
+  local name="$1" dir file line seed=""
+  shift
+  for dir in "$@"; do
+    file="$dir/$name.layer"
+    [ -f "$file" ] || continue
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in ''|'#'*) continue ;; esac
+      if [ -z "$seed" ]; then seed="$line"; else seed="$seed; $line"; fi
+    done < "$file"
+    printf '%s' "$seed"
+    return 0
+  done
+  return 1
+}
+
+# cockpit_duo_compose_brief BASE_BRIEF SEED -> BASE_BRIEF with the layer SEED
+# appended as a clearly-delimited startup instruction; BASE_BRIEF unchanged when
+# SEED is empty. Pure string assembly (unit-tested) so duo.sh just composes.
+cockpit_duo_compose_brief() {
+  local base="$1" seed="$2"
+  if [ -z "$seed" ]; then
+    printf '%s' "$base"
+  else
+    printf '%s Startup layers — adopt these now, before you begin: %s.' "$base" "$seed"
+  fi
 }

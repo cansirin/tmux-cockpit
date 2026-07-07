@@ -13,9 +13,21 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 
-target="${1:-$PWD}"
+# Selected startup layers (space-separated names): --layers "a b" wins over the
+# $COCKPIT_DUO_SELECTED env, which duo-launch.sh exports from the picker. Both
+# optional — no layers means the brief is byte-for-byte the pre-layers brief.
+layers="${COCKPIT_DUO_SELECTED:-}"
+path_arg=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --layers) layers="$2"; shift 2 ;;
+    *)        path_arg="$1"; shift ;;
+  esac
+done
+
+target="${path_arg:-$PWD}"
 if ! target="$(cd "$target" 2>/dev/null && pwd)"; then
-  echo "duo: not a directory: ${1:-$PWD}" >&2
+  echo "duo: not a directory: ${path_arg:-$PWD}" >&2
   exit 1
 fi
 
@@ -109,6 +121,18 @@ duo_siblings() {
   printf '%s' "$out"
 }
 
+# Resolve the selected layers to a single seed string, shared by every pane (a
+# duo-wide axis, not per-pane in v1). Each name's seed is concatenated with "; ";
+# an unknown name contributes nothing. Empty when no layers were selected, so
+# cockpit_duo_compose_brief is a no-op and the brief is unchanged.
+layer_dirs="$(cockpit_duo_layer_dirs)"
+layer_seed=""
+for lname in $layers; do
+  s="$(cockpit_duo_layer_seed "$lname" $layer_dirs)" || continue
+  [ -z "$s" ] && continue
+  if [ -z "$layer_seed" ]; then layer_seed="$s"; else layer_seed="$layer_seed; $s"; fi
+done
+
 # Seed the briefs once the command has booted. BACKGROUNDED so we never block
 # the caller — when launched from the prefix+Space menu (a run-shell), a
 # foreground sleep would freeze tmux for the whole boot wait. Sent literally
@@ -119,7 +143,9 @@ duo_siblings() {
   while [ "$i" -le "$npanes" ]; do
     pane="$(printf '%s\n' "$panes" | sed -n "${i}p")"
     # shellcheck disable=SC2046  # word-splitting the sibling pairs is intentional
-    _tm send-keys -t "$pane" -l "$(cockpit_duo_brief "1.$i" "$protocol" $(duo_siblings "$i"))"
+    brief="$(cockpit_duo_brief "1.$i" "$protocol" $(duo_siblings "$i"))"
+    brief="$(cockpit_duo_compose_brief "$brief" "$layer_seed")"
+    _tm send-keys -t "$pane" -l "$brief"
     _tm send-keys -t "$pane" Enter
     i=$((i + 1))
   done
