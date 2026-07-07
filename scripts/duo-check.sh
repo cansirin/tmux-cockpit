@@ -24,6 +24,9 @@ if [ -z "$label" ] || [ -z "$npanes" ]; then
 fi
 
 threshold="$(cockpit_opt @cockpit-duo-stall-secs 300)"
+# A non-numeric knob would crash the `-gt` comparison below with "integer
+# expression expected" — fall back to the default rather than blow up.
+case "$threshold" in *[!0-9]*|'') threshold=300 ;; esac
 now="$(date +%s)"
 
 i=1

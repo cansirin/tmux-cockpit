@@ -104,6 +104,15 @@ setup() {
   [ "$(cockpit_duo_reviews 1.2 2)" = "1.1" ]
 }
 
+@test "a sub-ring N (<2) is refused, not a silent self-review edge" {
+  run cockpit_duo_reviewed_by 1.1 1
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+  run cockpit_duo_reviews 1.1 1
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+}
+
 # --- review ring: n=3, the full directed ring 1.2 -> 1.3 -> 1.1 -> 1.2 ---
 
 @test "n=3 ring: reviewed_by follows 1.2->1.3->1.1->1.2" {
@@ -161,4 +170,12 @@ setup() {
   done
 
   tmux -L "$COCKPIT_SOCKET" kill-server 2>/dev/null || true
+}
+
+@test "tmsg refuses a label target when it can't tell which pane it's in" {
+  # Without $TMUX_PANE a label can't be scoped to the caller's duo — resolving it
+  # anyway would misroute to the active session. It must error, not guess.
+  run env -u TMUX_PANE bash "${BATS_TEST_DIRNAME}/../scripts/tmsg.sh" 1.2 hello
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"can't resolve label"* ]]
 }

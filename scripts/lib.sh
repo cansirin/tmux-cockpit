@@ -88,6 +88,9 @@ cockpit_duo_pane_key() {
 # 1..N: reviewed_by(k) = (k mod N) + 1. Collapses to the pair at N=2.
 cockpit_duo_reviewed_by() {
   local k="${1#1.}" n="$2"
+  # A ring needs at least two panes; below that (k mod n)+1 would name SELF, a
+  # self-review edge no caller should get silently. Refuse instead.
+  [ "$n" -ge 2 ] 2>/dev/null || return 1
   printf '1.%d' "$(( (k % n) + 1 ))"
 }
 
@@ -95,6 +98,7 @@ cockpit_duo_reviewed_by() {
 # SELF reviews — the inverse of the ring edge: reviews(k) = ((k-2+N) mod N) + 1.
 cockpit_duo_reviews() {
   local k="${1#1.}" n="$2"
+  [ "$n" -ge 2 ] 2>/dev/null || return 1  # no ring below two panes (see reviewed_by)
   printf '1.%d' "$(( ((k - 2 + n) % n) + 1 ))"
 }
 
