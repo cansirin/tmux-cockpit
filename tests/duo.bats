@@ -51,6 +51,14 @@ setup() {
   [[ "$output" != *"the leader"* ]]
 }
 
+@test "the brief points reviewers at the ring, not at everyone" {
+  # the brief must agree with protocol §4 (a directed ring), not tell a worker
+  # to review all siblings — the contradiction the 3-pane design review caught.
+  run cockpit_duo_brief 1.2 /tmp/p.md 1.1 %7 1.3 %9
+  [[ "$output" == *"review ring"* ]]
+  [[ "$output" != *"siblings' changes"* ]]
+}
+
 @test "every pane is told to leave durable notes to survive a compaction" {
   run cockpit_duo_brief 1.1 /tmp/p.md 1.2 %12
   [[ "$output" == *"durable notes"* ]]

@@ -57,7 +57,15 @@ while [ "$i" -lt "$npanes" ]; do
   _tm split-window -h -t "$name" -c "$target"
   i=$((i + 1))
 done
-_tm select-layout -t "$name" even-horizontal
+# 3 panes: leader (1.1, created first) is the wide main pane on the left, workers
+# 1.2/1.3 stack on the right — even-horizontal thirds wrap diffs badly. 2 stays
+# side-by-side.
+if [ "$npanes" -eq 3 ]; then
+  _tm set -t "$name" main-pane-width "60%"
+  _tm select-layout -t "$name" main-vertical
+else
+  _tm select-layout -t "$name" even-horizontal
+fi
 
 # Pane ids in creation order (bash 3.2-safe — no mapfile/arrays needed).
 panes="$(_tm list-panes -t "$name" -F '#{pane_id}')"

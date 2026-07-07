@@ -90,18 +90,21 @@ to it. To replace it entirely, just `bind Space …` yourself after the plugin l
 
 ## Claude duo
 
-`prefix + Space → D` spins up a **two-pane coordinated Claude pair** in the
-current repo: two panes (1.1 + 1.2) each running `@cockpit-main-cmd` (default
-`claude`), pre-seeded with a bootstrap brief — their label, their **role**
-(1.1 leads and coordinates; the other executes and reviews), their sibling's
+`prefix + Space → D` spins up a **coordinated Claude duo** (2 or 3 panes) in the
+current repo: panes (1.1 + 1.2, optionally 1.3) each running `@cockpit-main-cmd`
+(default `claude`), pre-seeded with a bootstrap brief — their label, their
+**role** (1.1 leads and coordinates; the rest execute and review), each sibling's
 tmux pane id, and a pointer to a working-agreement doc — so they coordinate
 themselves (leader on main, subagents do the bulk in worktrees, disjoint lanes,
-the other pane reviews, one merger, durable notes so a compacted pane revives
-itself). The agreement ships as a tool-agnostic
+your assigned reviewer reviews, one merger, durable notes so a compacted pane
+revives itself). The agreement ships as a tool-agnostic
 [`duo-protocol.md`](duo-protocol.md); point `@cockpit-duo-protocol` at your own
 to add your project's process.
 Re-running on the same repo just re-focuses the existing duo. Works from any
-pane; nothing is repo-specific. The panes are labeled `1.1` / `1.2` (and `1.3`,
+pane; nothing is repo-specific. Two panes sit side-by-side (`even-horizontal`);
+three use a `main-vertical` layout — the leader `1.1` is the wide main pane on
+the left, workers `1.2` / `1.3` stacked on the right, so diffs and code don't
+wrap in a narrow third. The panes are labeled `1.1` / `1.2` (and `1.3`,
 when `@cockpit-duo-panes 3`) on their borders so you always know which is which,
 and they talk to each other with [`tmsg`](scripts/tmsg.sh) (`tmsg <pane> "1.1:
 …"` — the `send-keys` two-step in one call). Before a context reset, `prefix +
@@ -110,6 +113,13 @@ Space → H` (or `duo-handoff`) prints a brief that re-orients a cold pane fast;
 "<state>"`) posts a periodic "still alive + current state" line to a durable
 notes file **and** the sibling, so a stalled or silently-compacted pane gets
 noticed and can revive itself from the notes.
+
+Review flows as a **directed ring**: with three panes every pane has exactly one
+assigned reviewer — `1.2 → 1.3 → 1.1 → 1.2` — the leader is in the ring and may
+reassign it. When to add a third pane vs. spawn a subagent: **a subagent for a
+task, a pane for a teammate**. Add a third pane only for a long-lived lane that
+must review and be reviewed as a peer; for bounded, returns-once work, spawn a
+subagent instead.
 
 **How the launch works** (for anyone extending it):
 

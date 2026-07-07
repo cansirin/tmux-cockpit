@@ -97,6 +97,13 @@ teardown() {
   [[ "$output" == *"1.1"* ]]
   [[ "$output" == *"1.2"* ]]
   [[ "$output" == *"1.3"* ]]
+  # main-vertical layout: leader 1.1 is the wide main pane, so its width exceeds
+  # a stacked worker's (1.2). Compare by pane_title to stay index-agnostic.
+  run tmux -L "$COCKPIT_SOCKET" list-panes -t trioproj-duo \
+    -F '#{pane_title} #{pane_width}'
+  w1="$(printf '%s\n' "$output" | awk '$1=="1.1"{print $2}')"
+  w2="$(printf '%s\n' "$output" | awk '$1=="1.2"{print $2}')"
+  [ "$w1" -gt "$w2" ]
   # reset so later tests default back to two panes
   tmux -L "$COCKPIT_SOCKET" set -gu @cockpit-duo-panes
 }

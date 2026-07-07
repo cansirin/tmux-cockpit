@@ -51,8 +51,8 @@ cockpit_duo_brief() {
   local self="$1" protocol="$2" role reach=""
   shift 2
   case "$self" in
-    1.1) role="You are the leader: track the work pipeline, split it into lanes, and delegate. Stay on the shared base and keep your tree clean." ;;
-    *)   role="You execute and review: take a lane, do the work in its own worktree, and review your siblings' changes." ;;
+    1.1) role="You are the leader: track the work pipeline, split it into lanes, and delegate. Stay on the shared base and keep your tree clean. You are in the review ring too." ;;
+    *)   role="You execute and review: take a lane, do the work in its own worktree, and review the sibling the protocol's review ring assigns you." ;;
   esac
   while [ "$#" -ge 2 ]; do
     reach="$reach Sibling: $1 at $2 — reach it with: tmux send-keys -t $2 -l \"$self: <msg>\" Enter."
