@@ -24,7 +24,9 @@ path_arg=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --layers) layers="$2"; shift 2 ;;
-    --panes)  panes_arg="$2"; shift 2 ;;
+    # Only consume $2 when it's a real pane count; a non-2|3 value (e.g. a path) is
+    # NOT swallowed — drop the flag, leave the arg for the positional path.
+    --panes)  case "${2:-}" in 2|3) panes_arg="$2"; shift 2 ;; *) shift ;; esac ;;
     *)        path_arg="$1"; shift ;;
   esac
 done

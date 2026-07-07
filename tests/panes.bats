@@ -108,3 +108,26 @@ _panecount() {
   tmux -L "$COCKPIT_SOCKET" kill-server 2>/dev/null || true
   [ "$n" -eq 2 ]
 }
+
+@test "--panes with a non-digit next arg does not swallow the path" {
+  command -v tmux >/dev/null || skip "tmux not installed"
+  export COCKPIT_SOCKET="cockpit-panes-noswallow-$$"
+  repo="$BATS_TEST_TMPDIR/pnoswallow"
+  mkdir -p "$repo"
+  tmux -L "$COCKPIT_SOCKET" new-session -ds _boot -c "$repo"
+  tmux -L "$COCKPIT_SOCKET" set-option -g @cockpit-main-cmd "cat"
+  tmux -L "$COCKPIT_SOCKET" set-option -g @cockpit-duo-boot-wait 1
+
+  # `--panes <repo>` with no digit: the flag is dropped, the path is NOT eaten, so
+  # the duo still launches at the repo (its <basename>-duo session exists) with the
+  # default pane count.
+  run bash -c "'${BATS_TEST_DIRNAME}/../scripts/duo.sh' --panes '$repo' >/dev/null 2>&1"
+  [ "$status" -eq 0 ]
+  name="$(cockpit_duo_name "$repo")"
+  run tmux -L "$COCKPIT_SOCKET" has-session -t "=$name"
+  saved="$status"
+  n="$(_panecount "$repo")"
+  tmux -L "$COCKPIT_SOCKET" kill-server 2>/dev/null || true
+  [ "$saved" -eq 0 ]
+  [ "$n" -eq 2 ]
+}
