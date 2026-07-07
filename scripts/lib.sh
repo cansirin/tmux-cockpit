@@ -75,6 +75,29 @@ cockpit_resolve_name() {
   printf '%s-%s' "$base" "$(cockpit_name_hash "$path")"
 }
 
+# cockpit_duo_pane_key LABEL -> the tmux option name (sans @) that maps LABEL to
+# a pane id in the session registry: `1.2` -> `cockpit-duo-pane-1-2`. tmux option
+# names allow letters/digits/hyphen/underscore but reject a dot, so the label's
+# dot is encoded as a hyphen. Callers prepend '@'.
+cockpit_duo_pane_key() {
+  printf 'cockpit-duo-pane-%s' "$(printf '%s' "$1" | tr '.' '-')"
+}
+
+# cockpit_duo_reviewed_by SELF_LABEL NPANES -> the label of the pane that reviews
+# SELF, per the directed ring `1.2 -> 1.3 -> 1.1 -> 1.2` (§4). For numeric k in
+# 1..N: reviewed_by(k) = (k mod N) + 1. Collapses to the pair at N=2.
+cockpit_duo_reviewed_by() {
+  local k="${1#1.}" n="$2"
+  printf '1.%d' "$(( (k % n) + 1 ))"
+}
+
+# cockpit_duo_reviews SELF_LABEL NPANES -> the label of the pane whose changes
+# SELF reviews — the inverse of the ring edge: reviews(k) = ((k-2+N) mod N) + 1.
+cockpit_duo_reviews() {
+  local k="${1#1.}" n="$2"
+  printf '1.%d' "$(( ((k - 2 + n) % n) + 1 ))"
+}
+
 # cockpit_duo_brief SELF PROTOCOL  SIB_LABEL SIB_PANE [SIB_LABEL SIB_PANE ...]
 #   -> the bootstrap prompt seeded into one duo pane: its label, its role (1.1
 #   leads and coordinates; the others execute and review), how to reach each

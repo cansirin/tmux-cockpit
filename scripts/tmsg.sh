@@ -28,5 +28,15 @@ if [ -z "$pane" ] || [ "$#" -eq 0 ]; then
 fi
 
 msg="$*"
+
+# A duo label (1.2) is resolved through this session's registry to a pane id;
+# any other target (%12, session:win.pane) is passed to tmux untouched.
+if [[ "$pane" =~ ^1\.[0-9]+$ ]]; then
+  # Resolve the label off THIS pane's session ($TMUX_PANE identifies it robustly).
+  sess="$(_tm display-message -t "${TMUX_PANE:-}" -p '#{session_name}' 2>/dev/null)"
+  resolved="$(_tm show-option -t "$sess" -qv "@$(cockpit_duo_pane_key "$pane")" 2>/dev/null)"
+  [ -n "$resolved" ] && pane="$resolved"
+fi
+
 _tm send-keys -t "$pane" -l "$msg"
 _tm send-keys -t "$pane" Enter

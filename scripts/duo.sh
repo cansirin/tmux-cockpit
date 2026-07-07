@@ -79,10 +79,17 @@ panes="$(_tm list-panes -t "$name" -F '#{pane_id}')"
 
 # Label each pane 1.<n> on its border (scoped to this session) and boot the
 # command in it — so you always know which pane is which and that a duo is live.
+# The same loop records the duo identity registry (see below) so every duo
+# script can re-resolve label<->pane after claude's OSC clobbers the title.
+_tm set -t "$name" @cockpit-duo-npanes "$npanes"
 i=1
 while [ "$i" -le "$npanes" ]; do
   pane="$(printf '%s\n' "$panes" | sed -n "${i}p")"
   _tm select-pane -t "$pane" -T "1.$i"
+  # Session map (label -> pane id) plus a pane-local label. The pane option
+  # survives the title clobber, so a compacted pane can still learn who it is.
+  _tm set -t "$name" "@$(cockpit_duo_pane_key "1.$i")" "$pane"
+  _tm set -p -t "$pane" @cockpit-duo-label "1.$i"
   _tm send-keys -t "$pane" "$cmd" Enter
   i=$((i + 1))
 done
