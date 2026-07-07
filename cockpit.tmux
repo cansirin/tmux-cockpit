@@ -43,6 +43,8 @@ menu=(
   "launch DUO here"   D  "run-shell '$SCRIPTS/duo.sh #{pane_current_path}'"
   "handoff brief"     H  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/duo-handoff.sh | less -R'"
   "worktree status"   w  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-status.sh | less -R'"
+  "new worktree"      W  "command-prompt -p 'branch:' \"display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-new.sh %%'\""
+  "prune worktrees"   p  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-prune.sh | less -R'"
   "switch session"    s  "choose-tree -Zs"
   "rename session"    R  "command-prompt -I '#S' 'rename-session %%'"
   "detach"            d  "detach-client"

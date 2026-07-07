@@ -25,15 +25,16 @@ Read it top to bottom, confirm you've read it, then greet your siblings.
   lane. In a **three-pane** duo it drops to an **elastic seam lane** — cross-lane
   glue, shared config/types, integration — work that's short and interruptible,
   so tracking two workers and two review edges never starves them.
-- **To message a sibling, always two calls:**
+- **To message a sibling, use `tmsg` — address it by label:**
   ```bash
-  tmux send-keys -t <sibling-pane-id> -l "1.1: <your message>"
-  tmux send-keys -t <sibling-pane-id> Enter
+  tmsg 1.2 "1.1: <your message>"
   ```
-  `-l` sends the text literally (the shell won't eat it); the separate `Enter`
-  submits it. **Prefix every message with your label** so the thread reads.
-  (tmux-cockpit ships a one-call shortcut for exactly this:
-  `tmsg <sibling-pane-id> "1.1: <message>"`.)
+  `tmsg` resolves the label to its pane through the duo registry and does the
+  literal-send-then-`Enter` two-step for you. **Prefix every message with your
+  own label** so the thread reads. (Under the hood it's still two `tmux
+  send-keys` calls — `-l "…"` then `Enter`; a raw `%pane` target works too.)
+  Not sure who you are or who your siblings are — especially after a reset? Run
+  **`duo-whoami`** (your label, siblings, assigned reviewer, notes path).
 - **Route coordination through the leader.** You know every sibling's pane id, but
   lane grants, status, and plan changes go to (or CC) **1.1**, so the plan stays
   the single source of truth. Reserve direct worker↔worker messages for two
@@ -79,8 +80,9 @@ Read it top to bottom, confirm you've read it, then greet your siblings.
   an existing pane instead; you can fan out several in one turn.
 - **Each unit of work gets its own git worktree.** A subagent (or a sibling)
   does its work in an isolated worktree/branch, so parallel work never collides
-  on the filesystem and the leader's `main` stays clean. (`prefix+Space → w` /
-  `wt-status` shows which worktrees are merged and safe to prune.)
+  on the filesystem and the leader's `main` stays clean. `wt-new <branch>` cuts
+  one; `wt-status` shows which are merged and `wt-prune` removes them (dry-run by
+  default).
 - **Report while working.** Panes and subagents post progress at checkpoints —
   claimed → in-progress → blocked → done — not silence followed by a finished
   PR. Surface state early so the leader can re-plan against it.
@@ -98,9 +100,11 @@ Read it top to bottom, confirm you've read it, then greet your siblings.
   reviews exactly one author and is reviewed by exactly one other, and **the
   leader is in the ring** (its seam work is exactly what most needs a second set
   of eyes). In a two-pane duo the ring collapses to the pair: you review each
-  other. A named reviewer is the whole point — with two candidate reviewers and
-  none named, a change ships un-reviewed (each assumes the other has it) or gets
-  reviewed by its own author. Neither is allowed.
+  other. Don't compute your edge by hand — run **`duo-reviewer`** and it tells you
+  who reviews you and whom you review, for the live pane count. A named reviewer
+  is the whole point — with two candidate reviewers and none named, a change ships
+  un-reviewed (each assumes the other has it) or gets reviewed by its own author.
+  Neither is allowed.
 - **The leader may reassign** a specific change's reviewer when the ring reviewer
   is saturated or lacks context — explicitly and announced, not silently.
 - The reviewer checks it against what it was meant to do and **runs the real
@@ -143,12 +147,14 @@ Read it top to bottom, confirm you've read it, then greet your siblings.
   `prefix+Space → H`). Capture what a cold version of you would need: what you're
   doing, which branch/worktree, what's done, what's next.
 - **A compacted pane revives *itself*** from those notes — it does not wait for a
-  sibling to notice and re-brief it. A sibling re-orienting you (§1) is a
-  backstop, not the primary path. Durable notes survive a reset; in-flight chat
-  may not.
+  sibling to notice and re-brief it. Run **`duo-revive`**: it rebuilds your world
+  in one shot — who you are (`duo-whoami`), the tail of your notes, the handoff
+  brief, and your worktree. A sibling re-orienting you (§1) is a backstop, not the
+  primary path. Durable notes survive a reset; in-flight chat may not.
 - **Heartbeat.** Each pane periodically signals it's alive and posts its current
-  state to its siblings and to the handoff file (`duo-heartbeat`). A missed
-  heartbeat is how a stalled or silently-compacted pane gets noticed and revived.
+  state to its siblings and to the handoff file (`duo-heartbeat`). To spot a
+  sibling that's gone quiet, run **`duo-check`** — it reads tmux's own pane
+  activity to flag a stalled or dead pane (no daemon needed).
 
 ---
 

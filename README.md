@@ -19,6 +19,8 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `prefix + Space` → `D` | **launch a Claude duo** — 2–3 coordinated AI panes (1.1 leads) in the current repo |
 | `prefix + Space` → `H` | **handoff brief** — a re-orientation snapshot (HEAD, recent commits, open PRs, worktrees) |
 | `prefix + Space` → `w` | **worktree status** — which worktrees are merged (safe to prune) vs still unmerged |
+| `prefix + Space` → `W` | **new worktree** — type a branch, get a worktree in a sibling dir |
+| `prefix + Space` → `p` | **prune worktrees** — preview the merged ones (dry-run; `wt-prune --force` to act) |
 | `prefix + Space` → `e` | **edit reminders** — pop open the reminders file in `$EDITOR` |
 | `prefix + Space` → `a` | **add reminder** — type a line, it's appended to the reminders file (quick capture) |
 | status bar | a **labelled legend** — `[S]` sessions · `[G]` git context · centred window list · `[R]` reminders (its own row), each a colored section tag |
@@ -42,6 +44,19 @@ run '~/.tmux/plugins/tpm/tpm'   # keep this last
 ```
 
 Then press `prefix + I` to fetch it. Requires `tmux >= 3.2`, `fzf`.
+
+**Optional — put the CLIs on your `PATH`.** The menu works without this, but the
+command-line tools (`tmsg`, `duo-handoff`, `duo-heartbeat`, `duo-whoami`,
+`duo-revive`, `duo-check`, `wt-new`, `wt-prune`, …) are handy to type — and duo
+agents call them by name. From the plugin dir:
+
+```bash
+make install          # symlinks scripts/{tmsg,duo-*,wt-*}.sh into ~/.local/bin
+make install BIN=~/bin # or a dir of your choice
+```
+
+It's idempotent and won't clobber a real file; new `duo-*`/`wt-*` scripts are
+picked up automatically on the next run.
 
 ## Configure (optional)
 
@@ -108,13 +123,21 @@ three use a `main-vertical` layout — the leader `1.1` is the wide main pane on
 the left, workers `1.2` / `1.3` stacked on the right, so diffs and code don't
 wrap in a narrow third. The panes are labeled `1.1` / `1.2` (and `1.3`,
 when `@cockpit-duo-panes 3`) on their borders so you always know which is which,
-and they talk to each other with [`tmsg`](scripts/tmsg.sh) (`tmsg <pane> "1.1:
-…"` — the `send-keys` two-step in one call). Before a context reset, `prefix +
-Space → H` (or `duo-handoff`) prints a brief that re-orients a cold pane fast;
-[`duo-heartbeat`](scripts/duo-heartbeat.sh) (`duo-heartbeat 1.1 <sibling-pane>
-"<state>"`) posts a periodic "still alive + current state" line to a durable
-notes file **and** the sibling, so a stalled or silently-compacted pane gets
-noticed and can revive itself from the notes.
+and they talk to each other with [`tmsg`](scripts/tmsg.sh) — address a sibling by
+**label**, `tmsg 1.2 "1.1: …"` (a raw `%pane`/`sess:win.pane` target still works),
+resolved through a small **identity registry** the launcher stamps into tmux
+options (`@cockpit-duo-npanes`, a `@cockpit-duo-pane-1-2 → %id` map, and each
+pane's own `@cockpit-duo-label`) so labels survive even a compaction. A pane can
+re-locate itself with [`duo-whoami`](scripts/duo-whoami.sh) (its label, siblings,
+assigned reviewer, notes path) and [`duo-reviewer`](scripts/duo-reviewer.sh) (just
+the ring slice). Before a context reset, `prefix + Space → H` (or `duo-handoff`)
+prints a brief that re-orients a cold pane fast;
+[`duo-heartbeat`](scripts/duo-heartbeat.sh) (`duo-heartbeat 1.1 <sibling>
+"<state>"`) posts a "still alive + current state" line to a durable notes file
+**and** the sibling. After a silent compaction, [`duo-revive`](scripts/duo-revive.sh)
+rebuilds a pane's world (whoami + notes tail + handoff + its worktree), and
+[`duo-check`](scripts/duo-check.sh) reads siblings' tmux activity to flag a
+stalled or dead pane — no background daemon, just tmux's own liveness signal.
 
 Review flows as a **directed ring**: with three panes every pane has exactly one
 assigned reviewer — `1.2 → 1.3 → 1.1 → 1.2` — the leader is in the ring and may
@@ -175,10 +198,14 @@ session/window scope.
 - `scripts/session-list.sh` — renders the status-bar session list
 - `scripts/layout-default.sh` — the default cockpit layout
 - `scripts/duo.sh` — launches the 2-or-3-pane Claude duo (`duo-protocol.md` is the brief)
-- `scripts/tmsg.sh` — `tmsg <pane> <msg>`: send a line to another pane in one call (the `send-keys -l … ; send-keys Enter` two-step, wrapped)
+- `scripts/tmsg.sh` — `tmsg <pane|label> <msg>`: send a line to another pane in one call (label resolves via the duo registry; the `send-keys -l … ; send-keys Enter` two-step, wrapped)
 - `scripts/duo-handoff.sh` — prints the re-orientation brief (HEAD, commits, PRs, worktrees)
-- `scripts/duo-heartbeat.sh` — `duo-heartbeat <self> <sibling-pane> [state]`: post an alive+state line to the durable notes file and the sibling
-- `scripts/wt-status.sh` — classifies worktrees as merged / unmerged vs a base
+- `scripts/duo-heartbeat.sh` — `duo-heartbeat <self> <sibling> [state]`: post an alive+state line to the durable notes file and the sibling
+- `scripts/duo-whoami.sh` / `duo-reviewer.sh` — a pane's label, siblings, and ring-assigned reviewer, read from the duo registry
+- `scripts/duo-revive.sh` — reconstruct a compacted pane: whoami + notes tail + handoff + its worktree
+- `scripts/duo-check.sh` — flag a stalled/dead sibling from tmux's pane activity (read-only, no daemon)
+- `scripts/wt-status.sh` / `wt-new.sh` / `wt-prune.sh` — worktree lifecycle: classify / create / prune-merged (dry-run by default)
+- `scripts/link.sh` — `make install`: symlink the `tmsg`/`duo-*`/`wt-*` CLIs onto `PATH`
 - `cockpit.tmux` — wires the keybindings and status bar (TPM runs this)
 
 MIT.
