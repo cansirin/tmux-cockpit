@@ -99,3 +99,27 @@ _two_worktrees() {
   [[ "$output" == *"dirty"* ]]
   [ -d "$BATS_TEST_TMPDIR/merged" ]
 }
+
+@test "wt-prune exits non-zero when the base branch does not exist" {
+  # Fresh repo on an unborn branch: no origin/main, no main, and the current
+  # branch has no commit — so base resolves to a ref rev-parse can't verify.
+  empty="$BATS_TEST_TMPDIR/empty"
+  mkdir -p "$empty"
+  git -C "$empty" init -q -b work
+  run bash "$SCRIPTS/wt-prune.sh" "$empty"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"base branch not found"* ]]
+}
+
+@test "wt-prune handles a worktree path containing spaces" {
+  # regression: awk '{print $2}' truncated at the first space; sed keeps the path.
+  spaced="$BATS_TEST_TMPDIR/has space"
+  git -C "$REPO" worktree add -q -b spaced "$spaced" >/dev/null
+  echo s > "$spaced/f4"
+  git -C "$spaced" add f4
+  git -C "$spaced" commit -qm spaced-work
+  git -C "$REPO" merge -q spaced
+  run bash "$SCRIPTS/wt-prune.sh" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"has space"* ]]   # full path present, not truncated at "has"
+}

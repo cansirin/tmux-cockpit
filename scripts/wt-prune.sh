@@ -20,7 +20,9 @@ for arg in "$@"; do
   esac
 done
 
-[ -n "$repo" ] && cd "$repo" 2>/dev/null || true
+# cd failure must be fatal — a swallowed bad path would leave us in the CURRENT
+# repo and prune the wrong one.
+[ -n "$repo" ] && { cd "$repo" || { echo "wt-prune: not a directory: $repo" >&2; exit 1; }; }
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "wt-prune: not a git repo" >&2
   exit 1
@@ -34,6 +36,11 @@ else
   base="$(git rev-parse --abbrev-ref HEAD)"
 fi
 
+# Without this, a missing base makes every is-ancestor test fail and the run
+# becomes an invisible zero-candidate no-op instead of an error.
+git rev-parse --verify --quiet "$base" >/dev/null || {
+  echo "wt-prune: base branch not found: $base" >&2; exit 1; }
+
 # The main worktree holds the common git dir; never remove it. And never remove
 # the worktree we're currently inside (git refuses, but we skip it cleanly).
 main_wt="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
@@ -45,7 +52,8 @@ else
   echo "# DRY RUN — worktrees merged into $base (pass --force to remove)"
 fi
 
-git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt; do
+# sed (not `awk '{print $2}'`) so a worktree path containing spaces survives whole.
+git worktree list --porcelain | sed -n 's/^worktree //p' | while read -r wt; do
   br="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
   [ -z "$br" ] && continue
 

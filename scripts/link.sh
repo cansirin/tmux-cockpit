@@ -32,7 +32,9 @@ for src in "$SCRIPT_DIR"/tmsg.sh "$SCRIPT_DIR"/duo-*.sh "$SCRIPT_DIR"/wt-*.sh; d
       echo "ok      $dest -> $src"
       continue
     fi
-    rm -f "$dest"                    # stale symlink → repoint it
+    ln -sf "$src" "$dest"            # stale symlink → repoint it atomically
+    echo "linked  $dest -> $src"
+    continue
   elif [ -e "$dest" ]; then
     echo "skip    $dest exists and is not a symlink — leaving it alone" >&2
     continue
