@@ -20,9 +20,10 @@ bin_dir="${bin_dir/#\~/$HOME}"
 
 mkdir -p "$bin_dir" || { echo "link: cannot create bin dir $bin_dir" >&2; exit 1; }
 
-# The convention: tmsg plus every wt-* script. Globs that match nothing expand to
-# the literal pattern, so each candidate is existence-checked below.
-for src in "$SCRIPT_DIR"/tmsg.sh "$SCRIPT_DIR"/wt-*.sh; do
+# The convention: tmsg, crew-init, plus every wt-* script. Globs that match nothing
+# expand to the literal pattern, so each candidate is existence-checked below.
+# (crew.sh / crew-seed.sh are invoked by path from the menu, not linked as CLIs.)
+for src in "$SCRIPT_DIR"/tmsg.sh "$SCRIPT_DIR"/crew-init.sh "$SCRIPT_DIR"/wt-*.sh; do
   [ -f "$src" ] || continue
   name="$(basename "$src" .sh)"
   dest="$bin_dir/$name"

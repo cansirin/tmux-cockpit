@@ -16,7 +16,8 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `Ctrl-f` (no prefix) | floating fuzzy **project picker** — create-or-jump to any project's session, works even inside vim/claude |
 | `prefix + f` | same picker |
 | `prefix + Space` | **menu of everything** (split, zoom, jump, detach, all-keys) — recall, not memorize |
-| `prefix + Space` → `c` | **launch the pipeline-crew** — a 3-window Claude crew (triage · em · ea) in the current repo, each seeded with its role prompt |
+| `prefix + Space` → `c` | **launch the pipeline-crew** — a 3-window Claude crew (triage · em · ea) in the current repo, each launched as its agent def; auto-stands-up on first use |
+| `prefix + Space` → `C` | **crew stand-up** — install the plugins, scaffold + prefill `.claude/crew.config.jsonc`, gitignore it (idempotent) |
 | `prefix + Space` → `w` | **worktree status** — which worktrees are merged (safe to prune) vs still unmerged |
 | `prefix + Space` → `W` | **new worktree** — type a branch, get a worktree in a sibling dir |
 | `prefix + Space` → `p` | **prune worktrees** — preview the merged ones (dry-run; `wt-prune --force` to act) |
@@ -45,12 +46,12 @@ run '~/.tmux/plugins/tpm/tpm'   # keep this last
 Then press `prefix + I` to fetch it. Requires `tmux >= 3.2`, `fzf`.
 
 **Optional — put the CLIs on your `PATH`.** The menu works without this, but the
-command-line tools (`tmsg`, `wt-new`, `wt-prune`, `wt-status`, …) are handy to
-type — and crew windows call `tmsg` by name to message each other. From the
-plugin dir:
+command-line tools (`tmsg`, `crew-init`, `wt-new`, `wt-prune`, `wt-status`, …) are
+handy to type — and crew windows call `tmsg` by name to message each other. From
+the plugin dir:
 
 ```bash
-make install          # symlinks scripts/{tmsg,wt-*}.sh into ~/.local/bin
+make install          # symlinks scripts/{tmsg,crew-init,wt-*}.sh into ~/.local/bin
 make install BIN=~/bin # or a dir of your choice
 ```
 
@@ -155,12 +156,21 @@ out of sync with the defs:
 
 The launcher reads only those two objects (window names + tier names). Everything
 else in the file — operator, notification handle, §CP approver, WIP caps — the
-crew defs read themselves at spawn. **No config?** It still launches with the
-default window names (`triage`/`em`/`ea`), and the defs prompt you to run
-stand-up. Tier→model is the one thing the plugin doesn't own: map each tier name
-to a real `--model` once via `@cockpit-crew-model-<tier>` (e.g.
-`@cockpit-crew-model-build-tier 'opus'`); unset → plain `@cockpit-main-cmd`, so a
-role never silently downgrades on a made-up model.
+crew defs read themselves at spawn.
+
+**Stand-up is automatic.** The *first* `c` in a repo with no config runs
+[`crew-init`](scripts/crew-init.sh) for you (also `prefix + Space → C`, or the
+`crew-init` CLI): it ensures the `kampus-pipeline` + `pipeline-crew` plugins are
+installed, copies the plugin's config template into `.claude/`, **prefills** it
+from your `git`/`gh` identity and sane defaults (windows `triage`/`em`/`ea`, tiers
+planning/build/planning, WIP caps `2`/`2`, §CP approver = you), and gitignores it.
+Only one genuinely-personal field is left as a `<fill-me>`: where to send
+notifications. Idempotent — it never touches an existing config.
+
+Tier→model is the one thing the plugin doesn't own. The two standard tiers
+**default to `opus`** (no `~/.tmux.conf` needed); override a tier via
+`@cockpit-crew-model-<tier>` (e.g. `@cockpit-crew-model-build-tier 'sonnet'`). To
+run the crew unattended, set `@cockpit-crew-permission-mode 'auto'`.
 
 **How the launch works** (for anyone extending it):
 
@@ -218,11 +228,12 @@ window scope.
 - `scripts/sessionizer.sh` — the picker + create-or-switch logic
 - `scripts/session-list.sh` — renders the status-bar session list
 - `scripts/layout-default.sh` — the default cockpit layout
-- `scripts/crew.sh` — the `prefix+Space → c` entry: stands up the `<project>-crew` session with one window per seam (names + model tiers from `.claude/crew.config.jsonc`), boots `@cockpit-main-cmd` per tier, and seeds each its role prompt
-- `scripts/crew-seed.sh` — server-side (`run-shell -b`) deferred prompt send, so it survives the launch popup closing
+- `scripts/crew.sh` — the `prefix+Space → c` entry: stands up the `<project>-crew` session with one window per seam (names + model tiers from `.claude/crew.config.jsonc`), launches `@cockpit-main-cmd --agent <role>` per tier, and types the loop kickoffs; auto-runs `crew-init` the first time a repo has no config
+- `scripts/crew-init.sh` — `prefix+Space → C` / `crew-init`: idempotent stand-up — ensures the plugins, scaffolds + prefills `.claude/crew.config.jsonc` from your git/gh identity, gitignores it
+- `scripts/crew-seed.sh` — server-side (`run-shell -b`) deferred kickoff send, so it survives the launch popup closing
 - `scripts/tmsg.sh` — `tmsg <target> <msg>`: send a line to another window/pane in one call (e.g. `crew:em`; the `send-keys -l … ; send-keys Enter` two-step, wrapped)
 - `scripts/wt-status.sh` / `wt-new.sh` / `wt-prune.sh` — worktree lifecycle: classify / create / prune-merged (dry-run by default)
-- `scripts/link.sh` — `make install`: symlink the `tmsg`/`wt-*` CLIs onto `PATH`
+- `scripts/link.sh` — `make install`: symlink the `tmsg`/`crew-init`/`wt-*` CLIs onto `PATH`
 - `cockpit.tmux` — wires the keybindings and status bar (TPM runs this)
 
 MIT.

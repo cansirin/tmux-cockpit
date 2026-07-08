@@ -52,9 +52,12 @@ perm="$(_tm show-option -gqv @cockpit-crew-permission-mode 2>/dev/null)"
 autostart="$(_tm show-option -gqv @cockpit-crew-autostart 2>/dev/null)"
 [ -z "$autostart" ] && autostart="on"
 
-# The pipeline-crew personalization seam — may be absent (launch degrades to
-# default window names and the defs prompt for stand-up).
+# The pipeline-crew personalization seam. First launch in a repo that has none:
+# run stand-up (install the plugins, scaffold + prefill this file, gitignore it),
+# then continue — so one press of `c` does everything. Idempotent and only fires
+# while the config is absent, so steady-state launches never re-run it.
 config="${CREW_CONFIG:-$target/.claude/crew.config.jsonc}"
+[ -f "$config" ] || "$SCRIPT_DIR/crew-init.sh" "$target" || true
 
 # Focus the session if it already exists — never spin up a second.
 focus() {
@@ -88,10 +91,16 @@ win_ea="$(cockpit_crew_config_get windows ea "$config" 2>/dev/null)"
 # concrete --model through the tmux option for that tier. No option -> plain cmd,
 # so a role never silently downgrades on a made-up model.
 crew_model() {  # ROLE_KEY (config modelTiers key)
-  local tier
+  local tier model
   tier="$(cockpit_crew_config_get modelTiers "$1" "$config" 2>/dev/null)"
   [ -z "$tier" ] && return 0
-  _tm show-option -gqv "@cockpit-crew-model-$tier" 2>/dev/null
+  model="$(_tm show-option -gqv "@cockpit-crew-model-$tier" 2>/dev/null)"
+  # Baked default so a plain install needs no ~/.tmux.conf model options; the two
+  # standard tiers both resolve to opus (no downgrade), overridable per tier.
+  if [ -z "$model" ]; then
+    case "$tier" in planning-tier|build-tier) model="opus" ;; esac
+  fi
+  printf '%s' "$model"
 }
 model_triage="$(crew_model triage)"
 model_em="$(crew_model engineeringManager)"
