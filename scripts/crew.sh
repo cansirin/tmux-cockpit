@@ -110,7 +110,8 @@ _tm new-window -t "$name" -n "$win_ea" -c "$target"
 # binds the session to the shipped def natively (the def resolves the rest of the
 # personalization seam itself); --permission-mode lets the crew run unattended.
 boot() {  # WINDOW ROLE MODEL
-  local run="$cmd --agent $agent_prefix$(cockpit_crew_agent_def "$2")"
+  local run
+  run="$cmd --agent $agent_prefix$(cockpit_crew_agent_def "$2")"
   [ -n "$3" ] && run="$run --model $3"
   [ -n "$perm" ] && run="$run --permission-mode $perm"
   _tm send-keys -t "$name:$1" "$run" Enter
