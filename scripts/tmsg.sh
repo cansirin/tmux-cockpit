@@ -7,8 +7,8 @@
 #   tmux send-keys -t <target> Enter        # submit it
 # — into a single command, so you can't fumble the -l or forget the Enter.
 # <pane> is any tmux target (e.g. %12, or session:win) — the crew addresses its
-# windows by name (e.g. `crew:em`). Everything after it is the message (joined
-# with spaces); it is sent LITERALLY, then submitted.
+# windows by the real session name (e.g. `<repo>-crew:em`). Everything after it is
+# the message (joined with spaces); it is sent LITERALLY, then submitted.
 # Resolve through symlinks so `lib.sh` is found even when tmsg is invoked via a
 # symlink on PATH (e.g. ~/.local/bin/tmsg). `readlink -f` isn't portable to old
 # macOS, so walk the link chain by hand.
@@ -30,5 +30,5 @@ fi
 
 msg="$*"
 
-_tm send-keys -t "$pane" -l "$msg"
+_tm send-keys -t "$pane" -l -- "$msg"
 _tm send-keys -t "$pane" Enter

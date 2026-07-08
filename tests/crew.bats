@@ -41,6 +41,25 @@ JSON
   [ "$(cockpit_crew_config_get modelTiers engineeringManager "$cfg")" = "build-tier" ]
 }
 
+@test "cockpit_crew_config_get does NOT leak a same-named key from a later object" {
+  # regression: a key absent from its parent must fall back (exit 1), not return
+  # a same-named key from a later object. Here `triage` is dropped from windows
+  # but still present in modelTiers.
+  cfg="$BATS_TEST_TMPDIR/partial.jsonc"
+  cat > "$cfg" <<'JSON'
+{
+  "tmux": { "windows": { "ea": "front", "engineeringManager": "build" } },
+  "modelTiers": { "ea": "planning-tier", "engineeringManager": "build-tier", "triage": "planning-tier" }
+}
+JSON
+  run cockpit_crew_config_get windows triage "$cfg"
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+  # the keys that ARE in windows still resolve correctly
+  [ "$(cockpit_crew_config_get windows ea "$cfg")" = "front" ]
+  [ "$(cockpit_crew_config_get modelTiers triage "$cfg")" = "planning-tier" ]
+}
+
 @test "cockpit_crew_config_get fails on a missing key or missing file" {
   cfg="$BATS_TEST_TMPDIR/crew.config.jsonc"
   mk_config "$cfg"

@@ -108,26 +108,29 @@ model_ea="$(crew_model ea)"
 
 # Session with one window per seam, all in the repo. Intake first, then execution,
 # then human — the crew's conveyor order.
-_tm new-session -ds "$name" -n "$win_triage" -c "$target"
+# Capture each window's ID at creation and address it by ID thereafter — a config
+# window name containing a `.` or `:` would otherwise be mis-parsed as a
+# window.pane / session:window target by send-keys/select-window.
+wid_triage="$(_tm new-session -dP -F '#{window_id}' -s "$name" -n "$win_triage" -c "$target")"
 # Record the repo path so a same-basename repo elsewhere resolves to its own crew
 # instead of re-focusing this one (cockpit_resolve_name reads this back).
 _tm set -t "$name" @cockpit-path "$target"
-_tm new-window -t "$name" -n "$win_em" -c "$target"
-_tm new-window -t "$name" -n "$win_ea" -c "$target"
+wid_em="$(_tm new-window -t "$name" -n "$win_em" -c "$target" -PF '#{window_id}')"
+wid_ea="$(_tm new-window -t "$name" -n "$win_ea" -c "$target" -PF '#{window_id}')"
 
 # Launch each window AS its pipeline-crew agent def, on its tier's model. --agent
 # binds the session to the shipped def natively (the def resolves the rest of the
 # personalization seam itself); --permission-mode lets the crew run unattended.
-boot() {  # WINDOW ROLE MODEL
+boot() {  # WINDOW_ID ROLE MODEL
   local run
   run="$cmd --agent $agent_prefix$(cockpit_crew_agent_def "$2")"
   [ -n "$3" ] && run="$run --model $3"
   [ -n "$perm" ] && run="$run --permission-mode $perm"
-  _tm send-keys -t "$name:$1" "$run" Enter
+  _tm send-keys -t "$1" "$run" Enter
 }
-boot "$win_triage" triage "$model_triage"
-boot "$win_em" em "$model_em"
-boot "$win_ea" ea "$model_ea"
+boot "$wid_triage" triage "$model_triage"
+boot "$wid_em" em "$model_em"
+boot "$wid_ea" ea "$model_ea"
 
 # Kick off the standing loops. --agent primes the persona, but a session waits for
 # a turn to act, so the intake + execution seams get a one-line "begin" typed in
@@ -140,15 +143,15 @@ case "$autostart" in
   *)
     kicks="$(mktemp "${TMPDIR:-/tmp}/cockpit-crew-kick.XXXXXX")"
     tab="$(printf '\t')"
-    kick_one() {  # WINDOW ROLE
+    kick_one() {  # WINDOW_ID ROLE
       local pane line
       line="$(cockpit_crew_kickoff "$2")"
       [ -z "$line" ] && return
-      pane="$(_tm list-panes -t "$name:$1" -F '#{pane_id}' | head -1)"
+      pane="$(_tm list-panes -t "$1" -F '#{pane_id}' | head -1)"
       printf '%s%s%s\n' "$pane" "$tab" "$line" >> "$kicks"
     }
-    kick_one "$win_triage" triage
-    kick_one "$win_em" em
+    kick_one "$wid_triage" triage
+    kick_one "$wid_em" em
     if [ -s "$kicks" ]; then
       _tm run-shell -b "'$SCRIPT_DIR/crew-seed.sh' '$kicks' '$boot_wait'"
     else
@@ -158,5 +161,5 @@ case "$autostart" in
 esac
 
 # Land on the EA window — the human's single point of contact into the crew.
-_tm select-window -t "$name:$win_ea"
+_tm select-window -t "$wid_ea"
 focus

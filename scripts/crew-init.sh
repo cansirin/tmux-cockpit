@@ -65,20 +65,28 @@ else
     handle="@$login"
     sess="$(cockpit_crew_name "$target")"
 
+    # Escape sed replacement metachars (& | \) in the interpolated identity values
+    # so a name like "R&D Bot" or "A|B" can't corrupt the substitution or abort it.
+    esc() { printf '%s' "$1" | sed 's/[&|\\]/\\&/g'; }
+    e_name="$(esc "$name")"; e_handle="$(esc "$handle")"
+    e_login="$(esc "$login")"; e_sess="$(esc "$sess")"
+
     mkdir -p "$(dirname "$config")"
     # Prefill every field we can derive; leave the one genuinely-unknowable field
     # (where to deliver notifications) as a <fill-me> so the def surfaces it. The
     # §CP approver defaults to you (a solo operator reviews their own §CP PRs);
-    # change it if a second human owns that gate. `|` delimiter dodges path slashes;
-    # the numeric caps drop their template quotes so they land as JSON numbers.
-    sed \
-      -e "s|<operator-name>|$name|g" \
-      -e "s|<operator-handle>|$handle|g" \
-      -e "s|<control-plane-approver-name>|$name|g" \
-      -e "s|<control-plane-approver-login>|$login|g" \
+    # change it if a second human owns that gate. The numeric caps drop their
+    # template quotes so they land as JSON numbers. Write to a temp then mv, so a
+    # sed failure never leaves a half-written (and now gitignored) empty config.
+    tmp="$(mktemp "${TMPDIR:-/tmp}/cockpit-crew-cfg.XXXXXX")"
+    if sed \
+      -e "s|<operator-name>|$e_name|g" \
+      -e "s|<operator-handle>|$e_handle|g" \
+      -e "s|<control-plane-approver-name>|$e_name|g" \
+      -e "s|<control-plane-approver-login>|$e_login|g" \
       -e "s|<notification-channel>|<fill-me: notification target>|g" \
-      -e "s|<notification-handle>|$handle|g" \
-      -e "s|<tmux-session-name>|$sess|g" \
+      -e "s|<notification-handle>|$e_handle|g" \
+      -e "s|<tmux-session-name>|$e_sess|g" \
       -e "s|<ea-window-name>|ea|g" \
       -e "s|<em-window-name>|em|g" \
       -e "s|<triage-window-name>|triage|g" \
@@ -87,8 +95,13 @@ else
       -e "s|<triage-model-tier>|planning-tier|g" \
       -e "s|\"<wip-cap-product-lanes>\"|2|g" \
       -e "s|\"<wip-cap-platform-lanes>\"|2|g" \
-      "$tmpl" > "$config"
-    echo "crew-init: wrote $config (prefilled from $name / $login)"
+      "$tmpl" > "$tmp"; then
+      mv "$tmp" "$config"
+      echo "crew-init: wrote $config (prefilled from $name / $login)"
+    else
+      rm -f "$tmp"
+      echo "crew-init: failed to render config from template — left it unwritten" >&2
+    fi
   fi
 fi
 
@@ -98,6 +111,11 @@ ignore=".claude/crew.config.jsonc"
 if [ -f "$gi" ] && grep -qxF "$ignore" "$gi"; then
   :
 else
+  # Ensure the file ends in a newline first, else the entry fuses onto the last
+  # line (`node_modules` + our line → one broken pattern that ignores neither).
+  if [ -f "$gi" ] && [ -n "$(tail -c1 "$gi" 2>/dev/null)" ]; then
+    printf '\n' >> "$gi"
+  fi
   printf '%s\n' "$ignore" >> "$gi"
   echo "crew-init: gitignored $ignore"
 fi

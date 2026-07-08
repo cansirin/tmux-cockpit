@@ -88,12 +88,20 @@ cockpit_crew_config_get() {
   local parent="$1" key="$2" file="$3"
   [ -f "$file" ] || return 1
   awk -v parent="$parent" -v key="$key" '
-    { line=$0; sub(/\/\/.*/, "", line) }
-    !inblk && line ~ "\"" parent "\"[[:space:]]*:[[:space:]]*\\{" { inblk=1 }
-    inblk && match(line, "\"" key "\"[[:space:]]*:[[:space:]]*\"[^\"]*\"") {
-      v=substr(line, RSTART, RLENGTH)
-      sub(/^[^:]*:[[:space:]]*"/, "", v); sub(/"$/, "", v)
-      print v; found=1; exit
+    { line=$0; sub(/\/\/.*/, "", line) }               # strip // line comments
+    !inblk {
+      if (line ~ "\"" parent "\"[[:space:]]*:[[:space:]]*\\{") inblk=1
+      else next                                          # not in the parent yet
+    }
+    {
+      if (match(line, "\"" key "\"[[:space:]]*:[[:space:]]*\"[^\"]*\"")) {
+        v=substr(line, RSTART, RLENGTH)
+        sub(/^[^:]*:[[:space:]]*"/, "", v); sub(/"$/, "", v)
+        print v; found=1; exit
+      }
+      # Parent object closed before the key was found — stop, DO NOT leak into a
+      # later object that happens to share the key name.
+      if (line ~ /}/) exit
     }
     END { exit(found ? 0 : 1) }
   ' "$file"

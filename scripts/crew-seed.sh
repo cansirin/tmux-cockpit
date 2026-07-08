@@ -29,7 +29,7 @@ sleep "$boot_wait"
 tab="$(printf '\t')"
 while IFS="$tab" read -r pane brief; do
   [ -n "$pane" ] || continue
-  _tm send-keys -t "$pane" -l "$brief"
+  _tm send-keys -t "$pane" -l -- "$brief"
   _tm send-keys -t "$pane" Enter
 done < "$briefs"
 
