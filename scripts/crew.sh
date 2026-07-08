@@ -2,23 +2,25 @@
 # tmux-cockpit crew — launch the kampus pipeline-crew as a 3-window tmux session.
 # Bound in the prefix+Space menu (key c); pass a path as $1 (defaults to the
 # current pane's path). One session `<repo>-crew` with three windows — the intake,
-# execution, and human seams — each running @cockpit-main-cmd (default 'claude')
-# on its configured model tier, pre-seeded with its role spawn-prompt so the crew
-# self-coordinates. Idempotent: re-focuses an existing crew instead of spawning a
-# second.
+# execution, and human seams — each launching @cockpit-main-cmd (default 'claude')
+# AS its pipeline-crew agent def (`--agent`) on its model tier, so the shipped def
+# drives the session natively — no typed brief. Idempotent: re-focuses an existing
+# crew instead of spawning a second.
 #
 # Config seam: window names and per-role model tiers come from the pipeline-crew
 # personalization file ($CREW_CONFIG, else <repo>/.claude/crew.config.jsonc) — the
 # plugin's own seam, so tmux-cockpit stores none of it and nothing drifts. Absent
-# config still launches (default window names); the crew defs then self-prompt for
-# stand-up. Tier -> model id is the one thing the plugin doesn't own, mapped once
-# per tier via @cockpit-crew-model-<tier>; unset -> plain @cockpit-main-cmd.
+# config still launches (default window names). Tier -> model id is the one thing
+# the plugin doesn't own, mapped once per tier via @cockpit-crew-model-<tier>.
 #
 # Options (set in ~/.tmux.conf):
-#   @cockpit-main-cmd            command per window (default 'claude')
-#   @cockpit-crew-boot-wait      seconds to let the command boot before seeding (default 6)
-#   @cockpit-crew-model-<tier>   model id for a tier name from the config (e.g.
-#                                @cockpit-crew-model-build-tier 'opus'); unset -> no --model
+#   @cockpit-main-cmd              command per window (default 'claude'; --agent needs claude)
+#   @cockpit-crew-boot-wait        seconds to let the command boot before the kickoff (default 6)
+#   @cockpit-crew-model-<tier>     model id for a config tier name (e.g.
+#                                  @cockpit-crew-model-build-tier 'opus'); unset -> no --model
+#   @cockpit-crew-agent-prefix     agent registry namespace (default 'pipeline-crew:')
+#   @cockpit-crew-permission-mode  --permission-mode for every window (e.g. 'auto'); unset -> claude default
+#   @cockpit-crew-autostart        type the intake/execution loop kickoffs (default on; '0'/'off' to skip)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 
@@ -35,6 +37,20 @@ cmd="$(_tm show-option -gqv @cockpit-main-cmd 2>/dev/null)"
 
 boot_wait="$(_tm show-option -gqv @cockpit-crew-boot-wait 2>/dev/null)"
 [ -z "$boot_wait" ] && boot_wait=6
+
+# Agent registry namespace for `--agent`: installed plugin agents resolve as
+# `<plugin>:<agent>`, so the shipped defs are `pipeline-crew:<def>`. Override if
+# your registry surfaces them differently (e.g. vendored, bare names).
+agent_prefix="$(_tm show-option -gqv @cockpit-crew-agent-prefix 2>/dev/null)"
+[ -z "$agent_prefix" ] && agent_prefix="pipeline-crew:"
+
+# --permission-mode for every window (unset -> claude's own default). 'auto' lets
+# the crew run unattended.
+perm="$(_tm show-option -gqv @cockpit-crew-permission-mode 2>/dev/null)"
+
+# Whether to type the standing-loop kickoffs after boot (default on).
+autostart="$(_tm show-option -gqv @cockpit-crew-autostart 2>/dev/null)"
+[ -z "$autostart" ] && autostart="on"
 
 # The pipeline-crew personalization seam — may be absent (launch degrades to
 # default window names and the defs prompt for stand-up).
@@ -90,34 +106,46 @@ _tm set -t "$name" @cockpit-path "$target"
 _tm new-window -t "$name" -n "$win_em" -c "$target"
 _tm new-window -t "$name" -n "$win_ea" -c "$target"
 
-# Boot the command in each window on its tier's model.
-boot() {  # WINDOW MODEL
-  local run="$cmd"
-  [ -n "$2" ] && run="$cmd --model $2"
+# Launch each window AS its pipeline-crew agent def, on its tier's model. --agent
+# binds the session to the shipped def natively (the def resolves the rest of the
+# personalization seam itself); --permission-mode lets the crew run unattended.
+boot() {  # WINDOW ROLE MODEL
+  local run="$cmd --agent $agent_prefix$(cockpit_crew_agent_def "$2")"
+  [ -n "$3" ] && run="$run --model $3"
+  [ -n "$perm" ] && run="$run --permission-mode $perm"
   _tm send-keys -t "$name:$1" "$run" Enter
 }
-boot "$win_triage" "$model_triage"
-boot "$win_em" "$model_em"
-boot "$win_ea" "$model_ea"
+boot "$win_triage" triage "$model_triage"
+boot "$win_em" em "$model_em"
+boot "$win_ea" ea "$model_ea"
 
-# Compute each window's spawn-prompt now (pane<TAB>brief per line) and hand the
-# deferred send to the tmux SERVER via run-shell -b. NOT a shell `&` job: the
-# prefix+Space launcher runs inside a display-popup, and a backgrounded shell job
-# is killed when the popup closes — before boot-wait elapses — so nothing would
-# reach the windows. A server-side run-shell job outlives the popup. Briefs are
-# single-line, so the tab delimiter is safe.
-briefs="$(mktemp "${TMPDIR:-/tmp}/cockpit-crew-briefs.XXXXXX")"
-tab="$(printf '\t')"
-seed_one() {  # WINDOW ROLE
-  local pane brief
-  pane="$(_tm list-panes -t "$name:$1" -F '#{pane_id}' | head -1)"
-  brief="$(cockpit_crew_brief "$2" "$config" "$win_em")"
-  printf '%s%s%s\n' "$pane" "$tab" "$brief" >> "$briefs"
-}
-seed_one "$win_triage" triage
-seed_one "$win_em" em
-seed_one "$win_ea" ea
-_tm run-shell -b "'$SCRIPT_DIR/crew-seed.sh' '$briefs' '$boot_wait'"
+# Kick off the standing loops. --agent primes the persona, but a session waits for
+# a turn to act, so the intake + execution seams get a one-line "begin" typed in
+# after boot; the EA has no kickoff — it waits for you. The deferred send goes to
+# the tmux SERVER via run-shell -b: NOT a shell `&` job, which the prefix+Space
+# display-popup would kill on close before boot-wait elapses. Kickoffs are single
+# -line, so the tab delimiter is safe.
+case "$autostart" in
+  0|off|false|no) ;;
+  *)
+    kicks="$(mktemp "${TMPDIR:-/tmp}/cockpit-crew-kick.XXXXXX")"
+    tab="$(printf '\t')"
+    kick_one() {  # WINDOW ROLE
+      local pane line
+      line="$(cockpit_crew_kickoff "$2")"
+      [ -z "$line" ] && return
+      pane="$(_tm list-panes -t "$name:$1" -F '#{pane_id}' | head -1)"
+      printf '%s%s%s\n' "$pane" "$tab" "$line" >> "$kicks"
+    }
+    kick_one "$win_triage" triage
+    kick_one "$win_em" em
+    if [ -s "$kicks" ]; then
+      _tm run-shell -b "'$SCRIPT_DIR/crew-seed.sh' '$kicks' '$boot_wait'"
+    else
+      rm -f "$kicks"
+    fi
+    ;;
+esac
 
 # Land on the EA window — the human's single point of contact into the crew.
 _tm select-window -t "$name:$win_ea"

@@ -73,12 +73,16 @@ set -g @cockpit-extra "$HOME/work/big-monorepo"
 # a folder of per-project layout overrides: <session-name>.sh
 set -g @cockpit-layouts "~/.config/tmux/layouts"
 
-# pipeline-crew (see below): tune how long to wait for the per-window command to
-# boot before seeding its role prompt, and map each config model tier to a real
-# --model (the crew.config.jsonc names tiers; this says which model each tier is).
+# pipeline-crew (see below). Each window launches `claude --agent <role>` so the
+# shipped def drives it natively. Map each config model tier to a real --model
+# (the crew.config.jsonc names tiers; this says which model each tier is), run the
+# crew unattended with a permission mode, and tune boot wait / agent namespace.
 set -g @cockpit-crew-boot-wait 8
 set -g @cockpit-crew-model-planning-tier 'opus'
 set -g @cockpit-crew-model-build-tier    'opus'
+set -g @cockpit-crew-permission-mode 'auto'      # run unattended; unset = claude default
+# set -g @cockpit-crew-agent-prefix 'pipeline-crew:'  # default; override if your registry differs
+# set -g @cockpit-crew-autostart off               # don't type the loop kickoffs; drive it yourself
 
 # reminders: shown on their own [R] row (a second status line) whenever either of
 # these is set — no separate toggle. A file of reminders, one per line (blank
@@ -119,13 +123,15 @@ issue→merge conveyor:
   └──────────┘        └──────────────┘        └──────────────┘
 ```
 
-Each window runs `@cockpit-main-cmd` (default `claude`) on its model tier,
-pre-seeded with a spawn prompt that tells it which pipeline-crew agent def to
-follow (`triage-guy` / `engineering-manager` / `exec-assistant`), its seam
-behaviour, and to resolve the personalization seam. You land on the **ea** window
-— your single point of contact into the crew. Re-running on the same repo just
-re-focuses; nothing is repo-specific. Windows message each other with
-[`tmsg`](scripts/tmsg.sh) by name — `tmsg crew:em "ea: ship #123"`.
+Each window launches `@cockpit-main-cmd` (default `claude`) **as** its
+pipeline-crew agent def — `claude --agent pipeline-crew:<role> --model <tier>` —
+so the shipped def (`triage-guy` / `engineering-manager` / `exec-assistant`)
+drives the session natively and resolves the personalization seam itself. The
+intake and execution windows then get a one-line "begin" typed in to start their
+loops; you land on the **ea** window — your single point of contact — which waits
+for you. Re-running on the same repo just re-focuses; nothing is repo-specific.
+Windows message each other with [`tmsg`](scripts/tmsg.sh) by name —
+`tmsg crew:em "ea: ship #123"`.
 
 This is a **starter, not the crew itself.** The three agent defs live in the
 installed [`pipeline-crew`](https://github.com/kamp-us/phoenix/tree/main/claude-plugins/pipeline-crew)
@@ -166,21 +172,22 @@ role never silently downgrades on a made-up model.
    re-focuses and exits — never a second crew.
 3. Otherwise it creates a detached session with one window per seam
    (`new-session -d -n <triage>` + a `new-window` for em and ea), reading the
-   names from the config, and boots `@cockpit-main-cmd` (with `--model` per tier)
-   in each.
-4. It computes each window's spawn prompt now (`cockpit_crew_brief`) into a temp
-   file, then hands the deferred send to the tmux **server** with
-   `run-shell -b '…/crew-seed.sh …'`. `crew-seed.sh` waits `@cockpit-crew-boot-wait`
-   seconds, `send-keys -l`s each window its prompt, and deletes the file.
-   Server-side is load-bearing: the launcher runs inside a display-popup, and a
-   plain backgrounded shell job would be killed when the popup closes — before the
-   boot-wait — so nothing would reach the windows.
+   names from the config, and launches `@cockpit-main-cmd --agent <prefix><def>`
+   in each — `--model` per tier, `--permission-mode` if set.
+4. For the intake + execution seams it computes a one-line kickoff
+   (`cockpit_crew_kickoff`) into a temp file, then hands the deferred send to the
+   tmux **server** with `run-shell -b '…/crew-seed.sh …'`. `crew-seed.sh` waits
+   `@cockpit-crew-boot-wait` seconds, `send-keys -l`s each its kickoff, and deletes
+   the file. Server-side is load-bearing: the launcher runs inside a display-popup,
+   and a plain backgrounded shell job would be killed when the popup closes —
+   before the boot-wait — so the kickoff would never land. Skipped entirely when
+   `@cockpit-crew-autostart` is off.
 5. It `select-window`s to **ea** and `switch-client`s you there (or `attach` from
    a bare terminal).
 
 The pure logic (`cockpit_crew_name`, `cockpit_crew_config_get`,
-`cockpit_crew_brief`) lives in `scripts/lib.sh` and is unit-tested in
-`tests/crew.bats`; the launch + re-focus behavior is covered in
+`cockpit_crew_agent_def`, `cockpit_crew_kickoff`) lives in `scripts/lib.sh` and is
+unit-tested in `tests/crew.bats`; the launch + re-focus behavior is covered in
 `tests/integration.bats` (on an isolated socket).
 
 ## Tests

@@ -51,28 +51,17 @@ JSON
   [ "$status" -ne 0 ]
 }
 
-@test "cockpit_crew_brief names the right agent def per role" {
-  triage="$(cockpit_crew_brief triage /r/.claude/crew.config.jsonc em)"
-  [[ "$triage" == *"triage-guy"* ]]
-  [[ "$triage" == *"status:needs-triage"* ]]
-
-  em="$(cockpit_crew_brief em /r/.claude/crew.config.jsonc em)"
-  [[ "$em" == *"engineering-manager"* ]]
-  [[ "$em" == *"coder"* ]]
-
-  ea="$(cockpit_crew_brief ea /r/.claude/crew.config.jsonc em)"
-  [[ "$ea" == *"exec-assistant"* ]]
+@test "cockpit_crew_agent_def maps each role to its shipped def name" {
+  [ "$(cockpit_crew_agent_def triage)" = "triage-guy" ]
+  [ "$(cockpit_crew_agent_def em)" = "engineering-manager" ]
+  [ "$(cockpit_crew_agent_def ea)" = "exec-assistant" ]
 }
 
-@test "cockpit_crew_brief interpolates the execution window name for the seams that route to it" {
-  # a non-default em window name must reach the intake + human prompts
-  triage="$(cockpit_crew_brief triage /r/cfg build)"
-  [[ "$triage" == *"\`build\` window"* ]]
-  ea="$(cockpit_crew_brief ea /r/cfg build)"
-  [[ "$ea" == *"\`build\` window"* ]]
+@test "cockpit_crew_kickoff gives the intake + execution seams a begin line" {
+  [[ "$(cockpit_crew_kickoff triage)" == Begin* ]]
+  [[ "$(cockpit_crew_kickoff em)" == Begin* ]]
 }
 
-@test "cockpit_crew_brief resolves the config path it was given" {
-  b="$(cockpit_crew_brief ea /custom/path/crew.config.jsonc em)"
-  [[ "$b" == *"/custom/path/crew.config.jsonc"* ]]
+@test "cockpit_crew_kickoff leaves the EA idle (it waits for the operator)" {
+  [ -z "$(cockpit_crew_kickoff ea)" ]
 }

@@ -99,21 +99,27 @@ cockpit_crew_config_get() {
   ' "$file"
 }
 
-# cockpit_crew_brief ROLE CONFIG EM_WINDOW -> the spawn prompt seeded into one
-# crew window: it tells the session which pipeline-crew agent def to follow, its
-# seam behaviour, and to resolve the personalization seam at CONFIG. ROLE is one
-# of triage|em|ea. The intake and human seams reference the execution window by
-# name (EM_WINDOW) since that is where they hand work / route execution. Pure
-# string assembly (unit-tested); crew.sh send-keys it. Kept single-line so the
-# crew-seed.sh tab split stays safe.
-cockpit_crew_brief() {
-  local role="$1" config="$2" em_win="$3"
-  case "$role" in
-    triage)
-      printf '%s' "You are the pipeline-crew intake session. Follow the \`triage-guy\` agent def. Run the report → triage loop over the \`status:needs-triage\` queue and plan freshly-triaged epics (spawning the \`planner\`). Resolve the personalization seam from $config before acting; hand triaged issues to the \`$em_win\` window." ;;
-    em)
-      printf '%s' "You are the pipeline-crew execution conductor. Follow the \`engineering-manager\` agent def. Drive triaged issues to landed merges by spawning \`coder\` → \`reviewer\` → \`shipper\` (\`isolation:worktree\`) under the configured WIP caps, verify each merge landed, and bank §CP PRs for the control-plane approver. Resolve the personalization seam from $config first." ;;
-    ea)
-      printf '%s' "You are the pipeline-crew EA / chief-of-staff. Follow the \`exec-assistant\` agent def. Give me situational-awareness reads, route execution to the \`$em_win\` window (never run the pipeline yourself), own the single-owner notification protocol, and run §CP bank-and-relay for control-plane PRs. Resolve the personalization seam from $config first." ;;
+# cockpit_crew_agent_def ROLE -> the pipeline-crew agent def name a crew window is
+# launched as (`claude --agent <name>`). ROLE is one of triage|em|ea; the names
+# are the plugin's shipped def names (agents/*.md `name:`). Callers prepend the
+# registry namespace (@cockpit-crew-agent-prefix, default `pipeline-crew:`).
+cockpit_crew_agent_def() {
+  case "$1" in
+    triage) printf 'triage-guy' ;;
+    em)     printf 'engineering-manager' ;;
+    ea)     printf 'exec-assistant' ;;
+  esac
+}
+
+# cockpit_crew_kickoff ROLE -> the one-line "begin" typed into a crew window after
+# boot to start its standing loop. `--agent` primes the persona but a session
+# waits for a turn to act, so the intake and execution seams need a kickoff; the
+# EA has none (empty) — it waits for the operator. Pure (unit-tested); kept single
+# -line so the crew-seed.sh tab split stays safe.
+cockpit_crew_kickoff() {
+  case "$1" in
+    triage) printf 'Begin the intake loop: run report → triage over the status:needs-triage queue and plan freshly-triaged epics.' ;;
+    em)     printf 'Begin the execution loop: drive triaged issues to landed merges under the configured WIP caps.' ;;
+    *)      printf '' ;;
   esac
 }
