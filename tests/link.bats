@@ -10,14 +10,19 @@ setup() {
   BIN="$BATS_TEST_TMPDIR/bin"
 }
 
-@test "links a duo-* and a wt-* script, stripping the .sh" {
+@test "links the wt-* scripts and tmsg, stripping the .sh" {
   run bash "$SCRIPTS/link.sh" "$BIN"
   [ "$status" -eq 0 ]
-  [ -L "$BIN/duo-heartbeat" ]
   [ -L "$BIN/wt-status" ]
+  [ -L "$BIN/wt-prune" ]
   [ -L "$BIN/tmsg" ]
   # the symlink resolves to the absolute source script
   [ "$(readlink "$BIN/wt-status")" = "$SCRIPTS/wt-status.sh" ]
+}
+
+@test "does NOT link crew.sh (invoked by path, not a bare command)" {
+  bash "$SCRIPTS/link.sh" "$BIN"
+  [ ! -e "$BIN/crew" ]
 }
 
 @test "does NOT link lib.sh (not in the convention set)" {

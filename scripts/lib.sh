@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # tmux-cockpit shared helpers — sourced by the other scripts, unit-tested in tests/.
 
-# Where this lib lives (the scripts dir), so helpers can resolve repo-relative
-# paths (e.g. ../layers) regardless of the caller's cwd or which script sourced it.
-COCKPIT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 # _tm [...] — run tmux, honoring an optional isolated socket so tests never touch
 # the user's real server. Set COCKPIT_SOCKET to use `tmux -L <socket>`.
 _tm() {
@@ -40,11 +36,11 @@ cockpit_session_name() {
   printf '%s' "$name" | tr ' .:' '___'
 }
 
-# cockpit_duo_name PATH -> the base name for a Claude "duo" on PATH: a "-duo"
-# suffix on the normal base name, so a duo never collides with the project's
+# cockpit_crew_name PATH -> the base name for a pipeline-crew on PATH: a "-crew"
+# suffix on the normal base name, so the crew never collides with the project's
 # regular cockpit session.
-cockpit_duo_name() {
-  printf '%s-duo' "$(cockpit_session_name "$1")"
+cockpit_crew_name() {
+  printf '%s-crew' "$(cockpit_session_name "$1")"
 }
 
 # cockpit_name_hash PATH -> a short, stable hex tag derived from PATH. Pure and
@@ -66,7 +62,7 @@ cockpit_name_hash() {
 cockpit_resolve_name() {
   local base="$1" path="$2"
   # "=$base" forces an EXACT session-name match. A bare target prefix-matches in
-  # tmux, so a lone "app-duo" would otherwise answer a query for "app" and
+  # tmux, so a lone "app-crew" would otherwise answer a query for "app" and
   # wrongly disambiguate the plain session — anchor it.
   if ! _tm has-session -t "=$base" 2>/dev/null; then
     printf '%s' "$base"; return
@@ -79,113 +75,45 @@ cockpit_resolve_name() {
   printf '%s-%s' "$base" "$(cockpit_name_hash "$path")"
 }
 
-# cockpit_duo_pane_key LABEL -> the tmux option name (sans @) that maps LABEL to
-# a pane id in the session registry: `1.2` -> `cockpit-duo-pane-1-2`. tmux option
-# names allow letters/digits/hyphen/underscore but reject a dot, so the label's
-# dot is encoded as a hyphen. Callers prepend '@'.
-cockpit_duo_pane_key() {
-  printf 'cockpit-duo-pane-%s' "$(printf '%s' "$1" | tr '.' '-')"
+# cockpit_crew_config_get PARENT KEY FILE -> the string value of KEY inside the
+# PARENT object of a crew.config.jsonc (the pipeline-crew personalization seam),
+# e.g. `windows engineeringManager` -> "em". Scoping the read to PARENT is what
+# disambiguates keys that repeat across objects (`ea` lives in both `windows` and
+# `modelTiers`). Empty output + non-zero status when absent. This reads only the
+# handful of keys tmux-cockpit needs to stand up the windows — the crew defs read
+# the rest of the file themselves at spawn, so there is no second parser to keep
+# in sync. `//` line comments are stripped; a value must therefore not contain
+# `//` (the keys we read — window names, tier names — never do).
+cockpit_crew_config_get() {
+  local parent="$1" key="$2" file="$3"
+  [ -f "$file" ] || return 1
+  awk -v parent="$parent" -v key="$key" '
+    { line=$0; sub(/\/\/.*/, "", line) }
+    !inblk && line ~ "\"" parent "\"[[:space:]]*:[[:space:]]*\\{" { inblk=1 }
+    inblk && match(line, "\"" key "\"[[:space:]]*:[[:space:]]*\"[^\"]*\"") {
+      v=substr(line, RSTART, RLENGTH)
+      sub(/^[^:]*:[[:space:]]*"/, "", v); sub(/"$/, "", v)
+      print v; found=1; exit
+    }
+    END { exit(found ? 0 : 1) }
+  ' "$file"
 }
 
-# cockpit_duo_reviewed_by SELF_LABEL NPANES -> the label of the pane that reviews
-# SELF, per the directed ring `1.2 -> 1.3 -> 1.1 -> 1.2` (§4). For numeric k in
-# 1..N: reviewed_by(k) = (k mod N) + 1. Collapses to the pair at N=2.
-cockpit_duo_reviewed_by() {
-  local k="${1#1.}" n="$2"
-  # A ring needs at least two panes; below that (k mod n)+1 would name SELF, a
-  # self-review edge no caller should get silently. Refuse instead.
-  [ "$n" -ge 2 ] 2>/dev/null || return 1
-  printf '1.%d' "$(( (k % n) + 1 ))"
-}
-
-# cockpit_duo_reviews SELF_LABEL NPANES -> the label of the pane whose changes
-# SELF reviews — the inverse of the ring edge: reviews(k) = ((k-2+N) mod N) + 1.
-cockpit_duo_reviews() {
-  local k="${1#1.}" n="$2"
-  [ "$n" -ge 2 ] 2>/dev/null || return 1  # no ring below two panes (see reviewed_by)
-  printf '1.%d' "$(( ((k - 2 + n) % n) + 1 ))"
-}
-
-# cockpit_duo_brief SELF PROTOCOL  SIB_LABEL SIB_PANE [SIB_LABEL SIB_PANE ...]
-#   -> the bootstrap prompt seeded into one duo pane: its label, its role (1.1
-#   leads and coordinates; the others execute and review), how to reach each
-#   sibling, and the protocol to read. Variadic in the sibling pairs so a
-#   three-pane duo works (a pane then has two siblings). Pure string assembly
-#   (unit-tested); the caller send-keys it.
-cockpit_duo_brief() {
-  local self="$1" protocol="$2" role reach=""
-  shift 2
-  case "$self" in
-    1.1) role="You are the leader: track the work pipeline, split it into lanes, and delegate. Stay on the shared base and keep your tree clean. You are in the review ring too." ;;
-    *)   role="You execute and review: take a lane, do the work in its own worktree, and review the sibling the protocol's review ring assigns you." ;;
+# cockpit_crew_brief ROLE CONFIG EM_WINDOW -> the spawn prompt seeded into one
+# crew window: it tells the session which pipeline-crew agent def to follow, its
+# seam behaviour, and to resolve the personalization seam at CONFIG. ROLE is one
+# of triage|em|ea. The intake and human seams reference the execution window by
+# name (EM_WINDOW) since that is where they hand work / route execution. Pure
+# string assembly (unit-tested); crew.sh send-keys it. Kept single-line so the
+# crew-seed.sh tab split stays safe.
+cockpit_crew_brief() {
+  local role="$1" config="$2" em_win="$3"
+  case "$role" in
+    triage)
+      printf '%s' "You are the pipeline-crew intake session. Follow the \`triage-guy\` agent def. Run the report → triage loop over the \`status:needs-triage\` queue and plan freshly-triaged epics (spawning the \`planner\`). Resolve the personalization seam from $config before acting; hand triaged issues to the \`$em_win\` window." ;;
+    em)
+      printf '%s' "You are the pipeline-crew execution conductor. Follow the \`engineering-manager\` agent def. Drive triaged issues to landed merges by spawning \`coder\` → \`reviewer\` → \`shipper\` (\`isolation:worktree\`) under the configured WIP caps, verify each merge landed, and bank §CP PRs for the control-plane approver. Resolve the personalization seam from $config first." ;;
+    ea)
+      printf '%s' "You are the pipeline-crew EA / chief-of-staff. Follow the \`exec-assistant\` agent def. Give me situational-awareness reads, route execution to the \`$em_win\` window (never run the pipeline yourself), own the single-owner notification protocol, and run §CP bank-and-relay for control-plane PRs. Resolve the personalization seam from $config first." ;;
   esac
-  while [ "$#" -ge 2 ]; do
-    reach="$reach Sibling: $1 at $2 — reach it with: tmux send-keys -t $2 -l \"$self: <msg>\" Enter."
-    shift 2
-  done
-  printf '%s' "You are pane $self in a Claude duo. Read $protocol and follow it. \
-$role$reach \
-Default to subagents in worktrees for all real work; orchestrate, not execute. \
-Leave durable notes on the issue/PR or a handoff file so you can revive yourself after a compaction. \
-Greet your sibling, then wait for the human."
-}
-
-# cockpit_duo_heartbeat SELF STATE -> a one-line heartbeat a pane posts so a
-# stalled or silently-compacted sibling gets noticed (§8 of the protocol). The
-# timestamp is prepended by the caller (kept out so the line is unit-testable).
-cockpit_duo_heartbeat() {
-  printf 'heartbeat %s: %s' "$1" "${2:-alive}"
-}
-
-# --- duo layers: opt-in, composable startup add-ons seeded onto the base brief ---
-
-# cockpit_duo_layer_dirs -> the search path for `<name>.layer` files, one dir per
-# line. The user dir (from @cockpit-duo-layers / $COCKPIT_DUO_LAYERS) is printed
-# FIRST so it shadows the shipped repo `layers/` on a name clash (first hit wins
-# in cockpit_duo_layer_seed). The repo dir is relative to the scripts dir so it
-# resolves wherever the plugin is checked out.
-cockpit_duo_layer_dirs() {
-  local user
-  user="${COCKPIT_DUO_LAYERS:-$(_tm show-option -gqv @cockpit-duo-layers 2>/dev/null)}"
-  user="${user/#\~/$HOME}"
-  [ -n "$user" ] && printf '%s\n' "$user"
-  printf '%s\n' "$COCKPIT_LIB_DIR/../layers"
-}
-
-# cockpit_duo_layer_seed NAME DIR... -> the seed line(s) for layer NAME: the first
-# `<name>.layer` found across DIRs, with `#`-comments and blank lines stripped and
-# the surviving lines joined by "; ". Empty output + non-zero status if not found.
-cockpit_duo_layer_seed() {
-  local name="$1" dir file line trimmed seed=""
-  shift
-  # NAME is interpolated into a path, so reject anything that could escape the
-  # layer dir (slash, ..) or isn't a plain layer name — a hard refusal, not a
-  # sanitize, so a bad name never silently reads some other file.
-  case "$name" in ''|*/*|*..*|*[!a-zA-Z0-9._-]*) return 1 ;; esac
-  for dir in "$@"; do
-    file="$dir/$name.layer"
-    [ -f "$file" ] || continue
-    while IFS= read -r line || [ -n "$line" ]; do
-      # Strip leading whitespace before the comment/blank test so an INDENTED
-      # `# comment` is dropped too; a mid-line `#` (e.g. "fix issue #42") stays.
-      trimmed="${line#"${line%%[![:space:]]*}"}"
-      case "$trimmed" in ''|'#'*) continue ;; esac
-      if [ -z "$seed" ]; then seed="$line"; else seed="$seed; $line"; fi
-    done < "$file"
-    printf '%s' "$seed"
-    return 0
-  done
-  return 1
-}
-
-# cockpit_duo_compose_brief BASE_BRIEF SEED -> BASE_BRIEF with the layer SEED
-# appended as a clearly-delimited startup instruction; BASE_BRIEF unchanged when
-# SEED is empty. Pure string assembly (unit-tested) so duo.sh just composes.
-cockpit_duo_compose_brief() {
-  local base="$1" seed="$2"
-  if [ -z "$seed" ]; then
-    printf '%s' "$base"
-  else
-    printf '%s Startup layers — adopt these now, before you begin: %s.' "$base" "$seed"
-  fi
 }

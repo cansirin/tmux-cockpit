@@ -54,7 +54,7 @@ teardown() {
   run tmux -L "$COCKPIT_SOCKET" list-keys -T prefix
   [[ "$output" == *"rename window"* ]]   # a restored default entry
   [[ "$output" == *"reload config"* ]]   # another restored default entry
-  [[ "$output" == *"launch DUO here"* ]] # the built-in duo launcher entry
+  [[ "$output" == *"launch CREW here"* ]] # the built-in crew launcher entry
   [[ "$output" == *"edit reminders"* ]]  # the reminders editor entry
   [[ "$output" == *"add reminder"* ]]    # the quick-capture entry
   [[ "$output" == *"hello extra"* ]]     # the user-supplied extra entry
@@ -66,57 +66,52 @@ teardown() {
   [[ "$output" == *"git-context.sh"* ]]
 }
 
-@test "duo launches a two-pane session in the given repo" {
-  proj="$BATS_TEST_TMPDIR/duoproj"
+@test "crew launches a three-window session in the given repo" {
+  proj="$BATS_TEST_TMPDIR/crewproj"
   mkdir -p "$proj"
-  # harmless per-pane command + no boot wait, so the test doesn't launch claude
+  # harmless per-window command + no boot wait, so the test doesn't launch claude
   # or block; TMUX set (dummy) forces the non-blocking switch-client branch.
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-duo-boot-wait 0
-  TMUX="fake" bash "$SCRIPTS/duo.sh" "$proj" 2>/dev/null || true
-  run tmux -L "$COCKPIT_SOCKET" list-panes -t duoproj-duo
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 2 ]
-  # panes are labeled 1.1 / 1.2 on their borders
-  run tmux -L "$COCKPIT_SOCKET" list-panes -t duoproj-duo -F '#{pane_title}'
-  [[ "$output" == *"1.1"* ]]
-  [[ "$output" == *"1.2"* ]]
-}
-
-@test "duo launches a three-pane session when @cockpit-duo-panes is 3" {
-  proj="$BATS_TEST_TMPDIR/trioproj"
-  mkdir -p "$proj"
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-duo-boot-wait 0
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-duo-panes 3
-  TMUX="fake" bash "$SCRIPTS/duo.sh" "$proj" 2>/dev/null || true
-  run tmux -L "$COCKPIT_SOCKET" list-panes -t trioproj-duo
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
+  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
+  run tmux -L "$COCKPIT_SOCKET" list-windows -t crewproj-crew -F '#{window_name}'
   [ "$status" -eq 0 ]
   [ "${#lines[@]}" -eq 3 ]
-  run tmux -L "$COCKPIT_SOCKET" list-panes -t trioproj-duo -F '#{pane_title}'
-  [[ "$output" == *"1.1"* ]]
-  [[ "$output" == *"1.2"* ]]
-  [[ "$output" == *"1.3"* ]]
-  # main-vertical layout: leader 1.1 is the wide main pane, so its width exceeds
-  # a stacked worker's (1.2). Compare by pane_title to stay index-agnostic.
-  run tmux -L "$COCKPIT_SOCKET" list-panes -t trioproj-duo \
-    -F '#{pane_title} #{pane_width}'
-  w1="$(printf '%s\n' "$output" | awk '$1=="1.1"{print $2}')"
-  w2="$(printf '%s\n' "$output" | awk '$1=="1.2"{print $2}')"
-  [ "$w1" -gt "$w2" ]
-  # reset so later tests default back to two panes
-  tmux -L "$COCKPIT_SOCKET" set -gu @cockpit-duo-panes
+  # the three seams, with their shipped default window names
+  [[ "$output" == *"triage"* ]]
+  [[ "$output" == *"em"* ]]
+  [[ "$output" == *"ea"* ]]
 }
 
-@test "duo re-focuses an existing session instead of spawning a second" {
+@test "crew reads window names from .claude/crew.config.jsonc" {
+  proj="$BATS_TEST_TMPDIR/cfgproj"
+  mkdir -p "$proj/.claude"
+  cat > "$proj/.claude/crew.config.jsonc" <<'JSON'
+{
+  // fictional stand-up — names only, no real operator data
+  "tmux": { "session": "crew", "windows": { "ea": "front", "engineeringManager": "build", "triage": "intake" } },
+  "modelTiers": { "ea": "planning-tier", "engineeringManager": "build-tier", "triage": "planning-tier" }
+}
+JSON
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
+  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
+  run tmux -L "$COCKPIT_SOCKET" list-windows -t cfgproj-crew -F '#{window_name}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"intake"* ]]
+  [[ "$output" == *"build"* ]]
+  [[ "$output" == *"front"* ]]
+}
+
+@test "crew re-focuses an existing session instead of spawning a second" {
   proj="$BATS_TEST_TMPDIR/dup"
   mkdir -p "$proj"
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-duo-boot-wait 0
-  TMUX="fake" bash "$SCRIPTS/duo.sh" "$proj" 2>/dev/null || true
-  TMUX="fake" bash "$SCRIPTS/duo.sh" "$proj" 2>/dev/null || true
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
+  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
+  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
   run tmux -L "$COCKPIT_SOCKET" list-sessions -F '#{session_name}'
-  [[ "$(printf '%s\n' "$output" | grep -c '^dup-duo$')" -eq 1 ]]
+  [[ "$(printf '%s\n' "$output" | grep -c '^dup-crew$')" -eq 1 ]]
 }
 
 @test "sessionizer creates a session from a path argument" {
@@ -152,14 +147,14 @@ teardown() {
   [ "$(printf '%s\n' "$names" | grep -cE '^app-[0-9a-f]{6}$')" -eq 1 ]
 }
 
-@test "a prefix sibling (foo-duo) does not steal the plain foo session name" {
+@test "a prefix sibling (foo-crew) does not steal the plain foo session name" {
   # regression: tmux prefix-matches a bare target, so has-session for "foo" used
-  # to answer true when only "foo-duo" existed — wrongly disambiguating "foo".
+  # to answer true when only "foo-crew" existed — wrongly disambiguating "foo".
   # The resolver anchors with "=foo", so a plain foo still gets its plain name.
   proj="$BATS_TEST_TMPDIR/plain/foo"
   mkdir -p "$proj"
-  tmux -L "$COCKPIT_SOCKET" new-session -ds foo-duo
-  tmux -L "$COCKPIT_SOCKET" set -t foo-duo @cockpit-path "/somewhere/else/foo"
+  tmux -L "$COCKPIT_SOCKET" new-session -ds foo-crew
+  tmux -L "$COCKPIT_SOCKET" set -t foo-crew @cockpit-path "/somewhere/else/foo"
   TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$proj" 2>/dev/null || true
   run tmux -L "$COCKPIT_SOCKET" has-session -t "=foo"
   [ "$status" -eq 0 ]   # a session named exactly "foo" was created, not "foo-<hash>"
