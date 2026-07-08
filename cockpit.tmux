@@ -40,8 +40,8 @@ menu=(
   "next / prev win"   "." "next-window"
   ""
   "JUMP to project"   f  "$picker"
-  "launch DUO here"   D  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/duo-launch.sh'"
-  "handoff brief"     H  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/duo-handoff.sh | less -R'"
+  "launch CREW here"  c  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/crew.sh'"
+  "crew STAND-UP"     C  "display-popup -E -d '#{pane_current_path}' 'COCKPIT_POPUP=1 $SCRIPTS/crew-init.sh'"
   "worktree status"   w  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-status.sh | less -R'"
   "new worktree"      W  "command-prompt -p 'branch:' \"display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-new.sh %%'\""
   "prune worktrees"   p  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-prune.sh | less -R'"
@@ -69,8 +69,7 @@ _tm bind f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
 _tm bind -n C-f display-popup -E -w 60% -h 50% "$SCRIPTS/sessionizer.sh"
 
 # Titled pane borders for every session. Global default (lowest priority), so the
-# layouts that set their own scoped format win where they apply: duo (session
-# scope) and the default cockpit layout (window scope) keep their distinct bars;
+# default cockpit layout's own window-scoped format wins where it applies and
 # everything else falls back to this one. #{session_name} is read live from the
 # format, so no per-pane select-pane -T seed is needed.
 _tm set -g pane-border-status top

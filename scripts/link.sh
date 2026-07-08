@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # tmux-cockpit link — symlink the command-line-facing cockpit scripts into a bin
-# dir so they're on $PATH as bare commands (tmsg, wt-status, duo-heartbeat, ...).
+# dir so they're on $PATH as bare commands (tmsg, wt-status, wt-prune, ...).
 #   link [bin-dir]
 #
 # Bin dir precedence: $1, then @cockpit-bin-dir, then ~/.local/bin. The link set
-# is a fixed glob CONVENTION — scripts/{tmsg,duo-*,wt-*}.sh — so any future
-# duo-*/wt-* script auto-links here with no edit to this file. Idempotent: a
+# is a fixed glob CONVENTION — scripts/{tmsg,wt-*}.sh — so any future
+# wt-* script auto-links here with no edit to this file. Idempotent: a
 # correct link is skipped, a stale link is repointed, a real (non-symlink) file
 # in the way is left untouched with a warning. Run it via `make install`.
 set -uo pipefail
@@ -20,9 +20,10 @@ bin_dir="${bin_dir/#\~/$HOME}"
 
 mkdir -p "$bin_dir" || { echo "link: cannot create bin dir $bin_dir" >&2; exit 1; }
 
-# The convention: tmsg plus every duo-* / wt-* script. Globs that match nothing
+# The convention: tmsg, crew-init, plus every wt-* script. Globs that match nothing
 # expand to the literal pattern, so each candidate is existence-checked below.
-for src in "$SCRIPT_DIR"/tmsg.sh "$SCRIPT_DIR"/duo-*.sh "$SCRIPT_DIR"/wt-*.sh; do
+# (crew.sh / crew-seed.sh are invoked by path from the menu, not linked as CLIs.)
+for src in "$SCRIPT_DIR"/tmsg.sh "$SCRIPT_DIR"/crew-init.sh "$SCRIPT_DIR"/wt-*.sh; do
   [ -f "$src" ] || continue
   name="$(basename "$src" .sh)"
   dest="$bin_dir/$name"

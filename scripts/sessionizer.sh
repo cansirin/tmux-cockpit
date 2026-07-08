@@ -23,7 +23,7 @@ base="$(cockpit_session_name "$selected")"
 name="$(cockpit_resolve_name "$base" "$selected")"
 
 # Create the session (detached) if needed, then apply a layout (once, on create).
-# "=$name" forces an exact match so a prefix sibling (e.g. a "-duo") can't answer.
+# "=$name" forces an exact match so a prefix sibling (e.g. a "-crew") can't answer.
 if ! _tm has-session -t "=$name" 2>/dev/null; then
   _tm new-session -ds "$name" -c "$selected"
 

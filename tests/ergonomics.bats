@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for the duo ergonomics helpers: tmsg, duo-handoff, wt-status.
+# Tests for the cross-window ergonomics helpers: tmsg, wt-status.
 # tmux bits run on an isolated socket; git bits run in throwaway repos.
 
 export COCKPIT_SOCKET="cockpit_ergo_$$"
@@ -40,22 +40,6 @@ mk_repo() {
   sleep 0.4
   run tmux -L "$COCKPIT_SOCKET" capture-pane -t "$pane" -p
   [[ "$output" == *via-symlink-ok* ]]
-}
-
-@test "duo-handoff emits the brief sections for a git repo" {
-  repo="$BATS_TEST_TMPDIR/hrepo"
-  mk_repo "$repo"
-  run bash "$SCRIPTS/duo-handoff.sh" "$repo"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"## State"* ]]
-  [[ "$output" == *"## Recent commits"* ]]
-  [[ "$output" == *"## Worktrees"* ]]
-}
-
-@test "duo-handoff refuses a non-git directory" {
-  run bash "$SCRIPTS/duo-handoff.sh" "$BATS_TEST_TMPDIR"
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"not a git repo"* ]]
 }
 
 @test "wt-status marks an unmerged worktree UNMERGED and the base MERGED" {

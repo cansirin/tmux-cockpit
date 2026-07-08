@@ -2,12 +2,13 @@
 # tmux-cockpit tmsg — send a one-shot line to another pane, in ONE call.
 #   tmsg <pane> <message...>
 #
-# Wraps the two-step you do constantly when coordinating agents across panes —
-#   tmux send-keys -t <pane> -l "<msg>"   # type it literally
-#   tmux send-keys -t <pane> Enter        # submit it
+# Wraps the two-step you do constantly when coordinating agents across windows —
+#   tmux send-keys -t <target> -l "<msg>"   # type it literally
+#   tmux send-keys -t <target> Enter        # submit it
 # — into a single command, so you can't fumble the -l or forget the Enter.
-# <pane> is any tmux target (e.g. %12, or session:win.pane). Everything after
-# it is the message (joined with spaces); it is sent LITERALLY, then submitted.
+# <pane> is any tmux target (e.g. %12, or session:win) — the crew addresses its
+# windows by the real session name (e.g. `<repo>-crew:em`). Everything after it is
+# the message (joined with spaces); it is sent LITERALLY, then submitted.
 # Resolve through symlinks so `lib.sh` is found even when tmsg is invoked via a
 # symlink on PATH (e.g. ~/.local/bin/tmsg). `readlink -f` isn't portable to old
 # macOS, so walk the link chain by hand.
@@ -29,21 +30,5 @@ fi
 
 msg="$*"
 
-# A duo label (1.2) is resolved through this session's registry to a pane id;
-# any other target (%12, session:win.pane) is passed to tmux untouched.
-if [[ "$pane" =~ ^1\.[0-9]+$ ]]; then
-  # A label is only meaningful relative to the caller's own duo. Without
-  # $TMUX_PANE we can't know which session that is — `display-message -t ""`
-  # would silently answer for the client's ACTIVE session and deliver to the
-  # wrong duo. Refuse rather than misroute.
-  if [ -z "${TMUX_PANE:-}" ]; then
-    echo "tmsg: can't resolve label '$pane' outside a tmux pane (no \$TMUX_PANE)" >&2
-    exit 3
-  fi
-  sess="$(_tm display-message -t "$TMUX_PANE" -p '#{session_name}' 2>/dev/null)"
-  resolved="$(_tm show-option -t "$sess" -qv "@$(cockpit_duo_pane_key "$pane")" 2>/dev/null)"
-  [ -n "$resolved" ] && pane="$resolved"
-fi
-
-_tm send-keys -t "$pane" -l "$msg"
+_tm send-keys -t "$pane" -l -- "$msg"
 _tm send-keys -t "$pane" Enter
