@@ -116,6 +116,13 @@ model_ea="$(crew_model ea)"
 layout="$(_tm show-option -gqv @cockpit-crew-layout 2>/dev/null)"
 [ -z "$layout" ] && layout="panes"
 
+# The config the AGENTS resolve. In windows mode it's the repo config unchanged
+# (real windows named ea/em/triage exist). In panes mode the crew defs' relay —
+# `send-keys -t <session>:<tmux.windows.ea>` — has no window to hit, so the agents
+# get a RUNTIME copy whose windows.* are the panes' `win.pane` index targets (which
+# `<session>:1.1` resolves to). The repo's own config stays readable, untouched.
+crew_config="$config"
+
 if [ "$layout" = "windows" ]; then
   id_triage="$(_tm new-session -dP -F '#{pane_id}' -s "$name" -n "$win_triage" -c "$target")"
   # Record the repo path so a same-basename repo elsewhere resolves to its own crew
@@ -139,6 +146,29 @@ else
   _tm set -t "$name" pane-border-status top
   _tm set -t "$name" pane-border-format " #{pane_title} "
   focus_sel="select-pane"
+
+  # Rewrite windows.* → live `win.pane` targets so a peer relay resolves to the
+  # pane. Only the windows block is touched (modelTiers keeps its tier names).
+  if [ -f "$config" ]; then
+    t_ea="$(_tm display-message -p -t "$id_ea" '#{window_index}.#{pane_index}')"
+    t_triage="$(_tm display-message -p -t "$id_triage" '#{window_index}.#{pane_index}')"
+    t_em="$(_tm display-message -p -t "$id_em" '#{window_index}.#{pane_index}')"
+    rt="${COCKPIT_CREW_RUNTIME:-$(mktemp "${TMPDIR:-/tmp}/cockpit-crew-rt.XXXXXX")}"
+    if awk -v ea="$t_ea" -v em="$t_em" -v tr="$t_triage" '
+        /"windows"[[:space:]]*:[[:space:]]*\{/ {inw=1}
+        inw {
+          sub(/"ea"[[:space:]]*:[[:space:]]*"[^"]*"/,                 "\"ea\": \"" ea "\"")
+          sub(/"engineeringManager"[[:space:]]*:[[:space:]]*"[^"]*"/, "\"engineeringManager\": \"" em "\"")
+          sub(/"triage"[[:space:]]*:[[:space:]]*"[^"]*"/,             "\"triage\": \"" tr "\"")
+          if (/}/) inw=0
+        }
+        {print}
+      ' "$config" > "$rt"; then
+      crew_config="$rt"
+    else
+      rm -f "$rt"
+    fi
+  fi
 fi
 
 # Launch each seam AS its pipeline-crew agent def, on its tier's model. --agent
@@ -149,7 +179,9 @@ boot() {  # PANE_ID ROLE MODEL
   run="$cmd --agent $agent_prefix$(cockpit_crew_agent_def "$2")"
   [ -n "$3" ] && run="$run --model $3"
   [ -n "$perm" ] && run="$run --permission-mode $perm"
-  _tm send-keys -t "$1" "$run" Enter
+  # Point the agent at the resolved config (the runtime copy in panes mode) so its
+  # relay targets the right seam; harmless in windows mode where it equals $config.
+  _tm send-keys -t "$1" "CREW_CONFIG='$crew_config' $run" Enter
 }
 boot "$id_triage" triage "$model_triage"
 boot "$id_em" em "$model_em"

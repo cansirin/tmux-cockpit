@@ -106,6 +106,30 @@ JSON
   [[ "$output" == *"front"* ]]
 }
 
+@test "crew (panes) hands agents a runtime config whose windows.* are pane targets" {
+  proj="$BATS_TEST_TMPDIR/rtproj"
+  mkdir -p "$proj/.claude"
+  cat > "$proj/.claude/crew.config.jsonc" <<'JSON'
+{
+  "tmux": { "session": "crew", "windows": { "ea": "ea", "engineeringManager": "em", "triage": "triage" } },
+  "modelTiers": { "ea": "planning-tier", "engineeringManager": "build-tier", "triage": "planning-tier" }
+}
+JSON
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
+  rt="$BATS_TEST_TMPDIR/runtime.jsonc"
+  COCKPIT_CREW_RUNTIME="$rt" TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
+  [ -f "$rt" ]
+  # windows.* rewritten to win.pane targets (digits.digits), NOT the names
+  run grep -E '"ea": "[0-9]+\.[0-9]+"' "$rt"
+  [ "$status" -eq 0 ]
+  grep -qE '"engineeringManager": "[0-9]+\.[0-9]+"' "$rt"
+  grep -qE '"triage": "[0-9]+\.[0-9]+"' "$rt"
+  # modelTiers untouched — the scoped rewrite must not bleed into it
+  grep -q '"ea": "planning-tier"' "$rt"
+  grep -q '"engineeringManager": "build-tier"' "$rt"
+}
+
 @test "crew @cockpit-crew-layout windows gives three windows instead" {
   proj="$BATS_TEST_TMPDIR/winproj"
   mkdir -p "$proj"
