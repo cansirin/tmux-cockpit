@@ -66,24 +66,27 @@ teardown() {
   [[ "$output" == *"git-context.sh"* ]]
 }
 
-@test "crew launches a three-window session in the given repo" {
+@test "crew launches three panes in one window (default layout), all visible" {
   proj="$BATS_TEST_TMPDIR/crewproj"
   mkdir -p "$proj"
-  # harmless per-window command + no boot wait, so the test doesn't launch claude
+  # harmless per-pane command + no boot wait, so the test doesn't launch claude
   # or block; TMUX set (dummy) forces the non-blocking switch-client branch.
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
   TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
-  run tmux -L "$COCKPIT_SOCKET" list-windows -t crewproj-crew -F '#{window_name}'
+  # one window...
+  run tmux -L "$COCKPIT_SOCKET" list-windows -t crewproj-crew
+  [ "${#lines[@]}" -eq 1 ]
+  # ...split into three panes, titled with the three seams
+  run tmux -L "$COCKPIT_SOCKET" list-panes -t crewproj-crew -F '#{pane_title}'
   [ "$status" -eq 0 ]
   [ "${#lines[@]}" -eq 3 ]
-  # the three seams, with their shipped default window names
   [[ "$output" == *"triage"* ]]
   [[ "$output" == *"em"* ]]
   [[ "$output" == *"ea"* ]]
 }
 
-@test "crew reads window names from .claude/crew.config.jsonc" {
+@test "crew reads seam names from .claude/crew.config.jsonc (pane titles)" {
   proj="$BATS_TEST_TMPDIR/cfgproj"
   mkdir -p "$proj/.claude"
   cat > "$proj/.claude/crew.config.jsonc" <<'JSON'
@@ -96,11 +99,27 @@ JSON
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
   TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
-  run tmux -L "$COCKPIT_SOCKET" list-windows -t cfgproj-crew -F '#{window_name}'
+  run tmux -L "$COCKPIT_SOCKET" list-panes -t cfgproj-crew -F '#{pane_title}'
   [ "$status" -eq 0 ]
   [[ "$output" == *"intake"* ]]
   [[ "$output" == *"build"* ]]
   [[ "$output" == *"front"* ]]
+}
+
+@test "crew @cockpit-crew-layout windows gives three windows instead" {
+  proj="$BATS_TEST_TMPDIR/winproj"
+  mkdir -p "$proj"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-layout windows
+  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
+  run tmux -L "$COCKPIT_SOCKET" list-windows -t winproj-crew -F '#{window_name}'
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 3 ]
+  [[ "$output" == *"triage"* ]]
+  [[ "$output" == *"em"* ]]
+  [[ "$output" == *"ea"* ]]
+  tmux -L "$COCKPIT_SOCKET" set -gu @cockpit-crew-layout   # reset for later tests
 }
 
 @test "crew re-focuses an existing session instead of spawning a second" {

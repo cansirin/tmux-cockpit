@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# tmux-cockpit crew — launch the kampus pipeline-crew as a 3-window tmux session.
+# tmux-cockpit crew — launch the kampus pipeline-crew as a tmux session.
 # Bound in the prefix+Space menu (key c); pass a path as $1 (defaults to the
-# current pane's path). One session `<repo>-crew` with three windows — the intake,
-# execution, and human seams — each launching @cockpit-main-cmd (default 'claude')
+# current pane's path). One session `<repo>-crew` with the intake, execution, and
+# human seams as three PANES in one row (all visible at once) — or three windows
+# with @cockpit-crew-layout windows — each launching @cockpit-main-cmd
 # AS its pipeline-crew agent def (`--agent`) on its model tier, so the shipped def
 # drives the session natively — no typed brief. Idempotent: re-focuses an existing
 # crew instead of spawning a second.
@@ -21,6 +22,7 @@
 #   @cockpit-crew-agent-prefix     agent registry namespace (default 'pipeline-crew:')
 #   @cockpit-crew-permission-mode  --permission-mode for every window (e.g. 'auto'); unset -> claude default
 #   @cockpit-crew-autostart        type the intake/execution loop kickoffs (default on; '0'/'off' to skip)
+#   @cockpit-crew-layout           'panes' (default; all 3 visible in one window) or 'windows'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 
@@ -106,31 +108,52 @@ model_triage="$(crew_model triage)"
 model_em="$(crew_model engineeringManager)"
 model_ea="$(crew_model ea)"
 
-# Session with one window per seam, all in the repo. Intake first, then execution,
-# then human — the crew's conveyor order.
-# Capture each window's ID at creation and address it by ID thereafter — a config
-# window name containing a `.` or `:` would otherwise be mis-parsed as a
-# window.pane / session:window target by send-keys/select-window.
-wid_triage="$(_tm new-session -dP -F '#{window_id}' -s "$name" -n "$win_triage" -c "$target")"
-# Record the repo path so a same-basename repo elsewhere resolves to its own crew
-# instead of re-focusing this one (cockpit_resolve_name reads this back).
-_tm set -t "$name" @cockpit-path "$target"
-wid_em="$(_tm new-window -t "$name" -n "$win_em" -c "$target" -PF '#{window_id}')"
-wid_ea="$(_tm new-window -t "$name" -n "$win_ea" -c "$target" -PF '#{window_id}')"
+# Layout: three PANES in one window (default) so all three seams are visible at
+# once, or three WINDOWS (@cockpit-crew-layout windows) if you'd rather tab between
+# them / your crew defs coordinate by window name. Each seam's PANE id is captured
+# at creation and addressed by id thereafter — immune to a config name containing
+# a `.`/`:`, which send-keys/select-* would otherwise mis-parse as a target.
+layout="$(_tm show-option -gqv @cockpit-crew-layout 2>/dev/null)"
+[ -z "$layout" ] && layout="panes"
 
-# Launch each window AS its pipeline-crew agent def, on its tier's model. --agent
+if [ "$layout" = "windows" ]; then
+  id_triage="$(_tm new-session -dP -F '#{pane_id}' -s "$name" -n "$win_triage" -c "$target")"
+  # Record the repo path so a same-basename repo elsewhere resolves to its own crew
+  # instead of re-focusing this one (cockpit_resolve_name reads this back).
+  _tm set -t "$name" @cockpit-path "$target"
+  id_em="$(_tm new-window -t "$name" -n "$win_em" -c "$target" -PF '#{pane_id}')"
+  id_ea="$(_tm new-window -t "$name" -n "$win_ea" -c "$target" -PF '#{pane_id}')"
+  focus_sel="select-window"   # a pane id resolves to its window for select-window
+else
+  # Three equal columns in one row (ea | triage | em), so all seams sit side by
+  # side and are readable at a glance.
+  id_ea="$(_tm new-session -dP -F '#{pane_id}' -s "$name" -c "$target")"
+  _tm set -t "$name" @cockpit-path "$target"
+  id_triage="$(_tm split-window -t "$id_ea" -h -c "$target" -PF '#{pane_id}')"
+  id_em="$(_tm split-window -t "$id_triage" -h -c "$target" -PF '#{pane_id}')"
+  _tm select-layout -t "$name" even-horizontal
+  # Title each pane with its (config) role name so the borders read ea/triage/em.
+  _tm select-pane -t "$id_triage" -T "$win_triage"
+  _tm select-pane -t "$id_em" -T "$win_em"
+  _tm select-pane -t "$id_ea" -T "$win_ea"
+  _tm set -t "$name" pane-border-status top
+  _tm set -t "$name" pane-border-format " #{pane_title} "
+  focus_sel="select-pane"
+fi
+
+# Launch each seam AS its pipeline-crew agent def, on its tier's model. --agent
 # binds the session to the shipped def natively (the def resolves the rest of the
 # personalization seam itself); --permission-mode lets the crew run unattended.
-boot() {  # WINDOW_ID ROLE MODEL
+boot() {  # PANE_ID ROLE MODEL
   local run
   run="$cmd --agent $agent_prefix$(cockpit_crew_agent_def "$2")"
   [ -n "$3" ] && run="$run --model $3"
   [ -n "$perm" ] && run="$run --permission-mode $perm"
   _tm send-keys -t "$1" "$run" Enter
 }
-boot "$wid_triage" triage "$model_triage"
-boot "$wid_em" em "$model_em"
-boot "$wid_ea" ea "$model_ea"
+boot "$id_triage" triage "$model_triage"
+boot "$id_em" em "$model_em"
+boot "$id_ea" ea "$model_ea"
 
 # Kick off the standing loops. --agent primes the persona, but a session waits for
 # a turn to act, so the intake + execution seams get a one-line "begin" typed in
@@ -143,15 +166,14 @@ case "$autostart" in
   *)
     kicks="$(mktemp "${TMPDIR:-/tmp}/cockpit-crew-kick.XXXXXX")"
     tab="$(printf '\t')"
-    kick_one() {  # WINDOW_ID ROLE
-      local pane line
+    kick_one() {  # PANE_ID ROLE
+      local line
       line="$(cockpit_crew_kickoff "$2")"
       [ -z "$line" ] && return
-      pane="$(_tm list-panes -t "$1" -F '#{pane_id}' | head -1)"
-      printf '%s%s%s\n' "$pane" "$tab" "$line" >> "$kicks"
+      printf '%s%s%s\n' "$1" "$tab" "$line" >> "$kicks"
     }
-    kick_one "$wid_triage" triage
-    kick_one "$wid_em" em
+    kick_one "$id_triage" triage
+    kick_one "$id_em" em
     if [ -s "$kicks" ]; then
       _tm run-shell -b "'$SCRIPT_DIR/crew-seed.sh' '$kicks' '$boot_wait'"
     else
@@ -160,6 +182,6 @@ case "$autostart" in
     ;;
 esac
 
-# Land on the EA window — the human's single point of contact into the crew.
-_tm select-window -t "$wid_ea"
+# Land on the EA seam — the human's single point of contact into the crew.
+_tm "$focus_sel" -t "$id_ea"
 focus
