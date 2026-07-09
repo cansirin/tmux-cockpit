@@ -2,8 +2,8 @@
 # tmux-cockpit crew — launch the kampus pipeline-crew as a tmux session.
 # Bound in the prefix+Space menu (key c); pass a path as $1 (defaults to the
 # current pane's path). One session `<repo>-crew` with the intake, execution, and
-# human seams as three PANES in one window (all visible at once) — or three
-# windows with @cockpit-crew-layout windows — each launching @cockpit-main-cmd
+# human seams as three PANES in one row (all visible at once) — or three windows
+# with @cockpit-crew-layout windows — each launching @cockpit-main-cmd
 # AS its pipeline-crew agent def (`--agent`) on its model tier, so the shipped def
 # drives the session natively — no typed brief. Idempotent: re-focuses an existing
 # crew instead of spawning a second.
@@ -125,14 +125,14 @@ if [ "$layout" = "windows" ]; then
   id_ea="$(_tm new-window -t "$name" -n "$win_ea" -c "$target" -PF '#{pane_id}')"
   focus_sel="select-window"   # a pane id resolves to its window for select-window
 else
-  # EA is the main (wide) pane — your point of contact; triage/em stack beside it.
+  # Three equal columns in one row (ea | triage | em), so all seams sit side by
+  # side and are readable at a glance.
   id_ea="$(_tm new-session -dP -F '#{pane_id}' -s "$name" -c "$target")"
   _tm set -t "$name" @cockpit-path "$target"
   id_triage="$(_tm split-window -t "$id_ea" -h -c "$target" -PF '#{pane_id}')"
-  id_em="$(_tm split-window -t "$id_triage" -v -c "$target" -PF '#{pane_id}')"
-  _tm set -t "$name" main-pane-width "55%"
-  _tm select-layout -t "$name" main-vertical
-  # Title each pane with its (config) role name so the borders read triage/em/ea.
+  id_em="$(_tm split-window -t "$id_triage" -h -c "$target" -PF '#{pane_id}')"
+  _tm select-layout -t "$name" even-horizontal
+  # Title each pane with its (config) role name so the borders read ea/triage/em.
   _tm select-pane -t "$id_triage" -T "$win_triage"
   _tm select-pane -t "$id_em" -T "$win_em"
   _tm select-pane -t "$id_ea" -T "$win_ea"

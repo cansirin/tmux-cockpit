@@ -113,9 +113,9 @@ to it. To replace it entirely, just `bind Space …` yourself after the plugin l
 
 `prefix + Space → c` stands up the [kamp.us **pipeline-crew**](https://github.com/kamp-us/phoenix/tree/main/claude-plugins/pipeline-crew)
 as a tmux session in the current repo — three Claude seams of the issue→merge
-conveyor, as **three panes in one window** (all visible at once; EA is the wide
-main pane). Prefer tabs? `set -g @cockpit-crew-layout windows` for one window per
-seam instead.
+conveyor, as **three panes in one row** (`ea | triage | em`, all visible at
+once). Prefer tabs? `set -g @cockpit-crew-layout windows` for one window per seam
+instead.
 
 ```
     intake                execution                 human
@@ -182,10 +182,10 @@ run the crew unattended, set `@cockpit-crew-permission-mode 'auto'`.
 2. `crew.sh` names the session `<project>-crew` (`cockpit_crew_name`, which reuses
    the collision-proof `cockpit_session_name`). If it already exists, it just
    re-focuses and exits — never a second crew.
-3. Otherwise it creates a detached session and splits it into three panes — EA
-   main, triage/em beside it (`main-vertical`), each titled with its config name
-   (or one window per seam under `@cockpit-crew-layout windows`) — capturing each
-   pane id, and launches `@cockpit-main-cmd --agent <prefix><def>` in each —
+3. Otherwise it creates a detached session and splits it into three equal columns
+   in one row (`ea | triage | em`, `even-horizontal`), each titled with its config
+   name (or one window per seam under `@cockpit-crew-layout windows`) — capturing
+   each pane id, and launches `@cockpit-main-cmd --agent <prefix><def>` in each —
    `--model` per tier, `--permission-mode` if set.
 4. For the intake + execution seams it computes a one-line kickoff
    (`cockpit_crew_kickoff`) into a temp file, then hands the deferred send to the
