@@ -15,10 +15,12 @@
 #   @cockpit-reminders-file  file of reminders, one per line (skip #/blank, ~ expands);
 #                       shows them on the [R] row. Edit via prefix+Space → e.
 #   @cockpit-reminders  inline reminder(s) shown on the [R] row alongside the file's
-#   @cockpit-color-sessions  [S] accent: tag bg + session text + active chip (default colour111)
-#   @cockpit-color-reminders [R] accent: tag bg + reminder text            (default colour150)
-#   @cockpit-color-ink  dark text on the filled [S]/[R]/[G] chips          (default colour235)
-#   @cockpit-color-git  [G] accent: tag bg + branch text                   (default colour175)
+#   @cockpit-color-sessions  [S] accent: tag + session text + active chip (default blue)
+#   @cockpit-color-reminders [R] accent: tag + reminder text              (default green)
+#   @cockpit-color-git  [G] accent: tag + branch text                     (default magenta)
+#   Defaults are NAMED ansi slots, which the terminal resolves from its ACTIVE
+#   theme — so the accents follow a light/dark flip for free. Any tmux colour
+#   works if you'd rather pin one (e.g. colour111).
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS="$CURRENT_DIR/scripts"
@@ -83,11 +85,13 @@ _tm set -g pane-border-format ' #{session_name} · #{pane_title} '
 # their OWN row (row 1), marked by the [R] tag. Coloured tags read as a legend;
 # content tinted. Section colours are tunable (@cockpit-color-*); the render
 # scripts read the same options + defaults, so tag and content stay in sync.
-c_sessions="$(cockpit_opt @cockpit-color-sessions colour111)"
-c_reminders="$(cockpit_opt @cockpit-color-reminders colour150)"
-c_ink="$(cockpit_opt @cockpit-color-ink colour235)"
-s_tag="#[fg=$c_ink,bg=$c_sessions,bold] S #[default]"
-r_tag="#[fg=$c_ink,bg=$c_reminders,bold] R #[default]"
+c_sessions="$(cockpit_opt @cockpit-color-sessions blue)"
+c_reminders="$(cockpit_opt @cockpit-color-reminders green)"
+# `reverse` swaps fg/bg, so a chip is an accent-coloured block whose letter is
+# painted in the TERMINAL'S OWN background — dark on a dark theme, light on a
+# light one, with no second "ink" colour to keep in agreement with the accent.
+s_tag="#[fg=$c_sessions,reverse,bold] S #[default]"
+r_tag="#[fg=$c_reminders,reverse,bold] R #[default]"
 # [S] sessions, then [G] git context for the active pane's repo (git-context.sh
 # self-renders its [G] chip only inside a work tree, so it vanishes elsewhere).
 _tm set -g status-left "$s_tag #($SCRIPTS/session-list.sh)  #($SCRIPTS/git-context.sh '#{pane_current_path}')"

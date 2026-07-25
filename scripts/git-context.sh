@@ -21,13 +21,14 @@ if up="$(git -C "$path" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}
   read -r ahead behind <<<"$(git -C "$path" rev-list --left-right --count "HEAD...$up" 2>/dev/null)"
 fi
 
-gcol="$(cockpit_opt @cockpit-color-git colour175)"   # [G] accent
-ink="$(cockpit_opt @cockpit-color-ink colour235)"    # dark text on the chip
+gcol="$(cockpit_opt @cockpit-color-git magenta)"   # [G] accent (named slot → follows the terminal theme)
 
 ind=""
 [ "${dirty:-0}" -gt 0 ]  && ind="$ind *$dirty"
 [ "${ahead:-0}" -gt 0 ]  && ind="$ind ↑$ahead"
 [ "${behind:-0}" -gt 0 ] && ind="$ind ↓$behind"
 
-printf '#[fg=%s,bg=%s,bold] G #[default] #[fg=%s]%s#[default]#[dim]%s#[default]  ' \
-  "$ink" "$gcol" "$gcol" "$branch" "$ind"
+# `reverse` swaps fg/bg on the chip, so its letter is painted in the terminal's
+# own background colour — no second "ink" colour to keep in agreement.
+printf '#[fg=%s,reverse,bold] G #[default] #[fg=%s]%s#[default]#[dim]%s#[default]  ' \
+  "$gcol" "$gcol" "$branch" "$ind"

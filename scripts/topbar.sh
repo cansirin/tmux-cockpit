@@ -23,10 +23,10 @@ inline="$(_tm show-option -gqv @cockpit-reminders 2>/dev/null)"
 [ "${#items[@]}" -eq 0 ] && exit 0   # nothing configured → blank bar
 
 # Items are tinted with the [R] legend colour so the row reads as one group, like
-# the [S] sessions; separators stay dim. The accent is a fixed 256-palette colour
-# (not a theme-remapped 0–15 slot), matching session-list.sh's colour note. No
-# marker here; the caller's [R] tag labels the line.
-accent="$(cockpit_opt @cockpit-color-reminders colour150)"   # the [R] legend colour
+# the [S] sessions; separators stay dim. The accent defaults to a NAMED ansi slot
+# the terminal resolves from its active theme, matching session-list.sh's colour
+# note. No marker here; the caller's [R] tag labels the line.
+accent="$(cockpit_opt @cockpit-color-reminders green)"   # the [R] legend colour
 sep=''
 for it in "${items[@]}"; do
   printf '%s#[fg=%s]%s#[default]' "$sep" "$accent" "$it"
