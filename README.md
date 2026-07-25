@@ -92,14 +92,17 @@ set -g @cockpit-reminders-file "~/.config/tmux/reminders.txt"
 # and/or inline reminders shown alongside the file's
 set -g @cockpit-reminders "ship the PR"
 
-# retune the status-bar section colors (any tmux colour; defaults shown). These
-# are the [S] sessions and [R] reminders accents + the dark ink on their chips.
+# retune the status-bar section colors (any tmux colour; defaults shown). The
+# defaults are NAMED ansi slots, which the terminal resolves from its ACTIVE
+# theme — so the accents follow a light/dark theme flip for free. Pin a fixed
+# 256-palette value here instead if you'd rather they never move.
+# The filled [S]/[R]/[G] chips are drawn with `reverse`, so their letter is
+# painted in the terminal's own background colour — there is no ink option.
 # (The bar background and the current-window colour are your own native tmux
 # options — `status-style` and `window-status-current-format`.)
-set -g @cockpit-color-sessions  colour111   # [S] accent: tag + session text + active chip
-set -g @cockpit-color-reminders colour150   # [R] accent: tag + reminder text
-set -g @cockpit-color-git       colour175   # [G] accent: tag + branch text
-set -g @cockpit-color-ink       colour235   # dark text on the filled [S]/[R]/[G] chips
+set -g @cockpit-color-sessions  blue      # [S] accent: tag + session text + active chip
+set -g @cockpit-color-reminders green     # [R] accent: tag + reminder text
+set -g @cockpit-color-git       magenta   # [G] accent: tag + branch text
 
 # add your own entries to the prefix+Space menu: "label" key "command" ...
 set -g @cockpit-menu-extra '"deploy" G "run-shell ~/bin/deploy"  "kill server" K "kill-server"'
