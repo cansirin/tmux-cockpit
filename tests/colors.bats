@@ -82,6 +82,55 @@ _mkrepo() {
   [[ ! "$output" =~ yellow ]]
 }
 
+@test "copy-mode and the menu keep their hue but drop the pinned black ink" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  for opt in mode-style copy-mode-match-style copy-mode-current-match-style \
+             copy-mode-mark-style menu-selected-style; do
+    run tmux -L "$COCKPIT_SOCKET" show-option -gv "$opt"
+    [[ "$output" == *"reverse"* ]]
+    [[ ! "$output" =~ fg=black ]]
+    [[ ! "$output" =~ colour[0-9] ]]
+  done
+}
+
+@test "the menu selection follows the [S] accent, pin included" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-sessions colour111
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv menu-selected-style
+  [[ "$output" == *"fg=colour111"* ]]
+}
+
+# These are NATIVE tmux options, so the restyle must be a repair of tmux's own
+# default and never a land-grab over a value the user chose.
+@test "a style the user set themselves is left untouched" {
+  tmux -L "$COCKPIT_SOCKET" set -g message-style "bg=colour53,fg=colour231"
+  tmux -L "$COCKPIT_SOCKET" set -g mode-style "bg=colour24,fg=white"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv message-style
+  [ "$output" = "bg=colour53,fg=colour231" ]
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv mode-style
+  [ "$output" = "bg=colour24,fg=white" ]
+}
+
+@test "@cockpit-fix-tmux-defaults off leaves every tmux default in place" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-fix-tmux-defaults off
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  for opt in message-style message-command-style mode-style menu-selected-style \
+             copy-mode-match-style copy-mode-current-match-style copy-mode-mark-style; do
+    run tmux -L "$COCKPIT_SOCKET" show-option -gv "$opt"
+    [[ "$output" == *"yellow"* || "$output" == *"fg=black"* ]]
+  done
+}
+
+@test "a re-pinned accent still lands on a style cockpit already restyled" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-sessions colour111
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv menu-selected-style
+  [[ "$output" == *"fg=colour111"* ]]
+}
+
 @test "the accents are still pinnable to a fixed colour" {
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-sessions colour111
   run bash "$SCRIPTS/session-list.sh"

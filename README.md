@@ -103,10 +103,15 @@ set -g @cockpit-reminders "ship the PR"
 set -g @cockpit-color-sessions  blue      # [S] accent: tag + session text + active chip
 set -g @cockpit-color-reminders green     # [R] accent: tag + reminder text
 set -g @cockpit-color-git       magenta   # [G] accent: tag + branch text
-# Same reasoning applies to the prompt bar (rename window, `branch:`, `reminder:`):
-# cockpit sets `message-style` to the terminal's own fg/bg reversed, replacing
-# tmux's `bg=yellow,fg=black` default — unreadable on themes whose ansi yellow is
-# a dark ochre. Override with your own `set -g message-style` after the plugin run.
+
+# Same reasoning applies to tmux's OWN theme-blind styles: the prompt bar (rename
+# window, `branch:`, `reminder:`), copy-mode (selection, search hits, mark) and the
+# prefix+Space menu selection all ship as `<ansi hue> on fg=black`, which is
+# unreadable on a theme whose palette is dark (GitHub Dark's yellow is #9e6a03).
+# cockpit repaints them with `reverse` so the ink is the terminal's own background.
+# It only ever replaces a value tmux itself shipped — set `message-style`,
+# `mode-style` & co. yourself and yours is kept. This opts out of the lot:
+set -g @cockpit-fix-tmux-defaults off     # default: on
 
 # add your own entries to the prefix+Space menu: "label" key "command" ...
 set -g @cockpit-menu-extra '"deploy" G "run-shell ~/bin/deploy"  "kill server" K "kill-server"'
