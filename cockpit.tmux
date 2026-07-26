@@ -104,3 +104,14 @@ if [ -n "$(_tm show-option -gqv @cockpit-reminders-file 2>/dev/null)$(_tm show-o
 else
   _tm set -g status on
 fi
+
+# Prompt / message bar (rename window, rename session, `branch:`, `reminder:` …).
+# tmux ships `bg=yellow,fg=black`, which assumes the terminal's ansi yellow is a
+# bright pastel. On themes whose yellow is a dark ochre (GitHub Dark, gruvbox,
+# solarized) that is dark-on-dark and the text you are typing is unreadable. Same
+# trick as the chips: `reverse` on the TERMINAL'S OWN fg/bg, so the bar is always
+# the theme's own maximum contrast and flips with a light/dark switch for free.
+_tm set -g message-style bg=default,fg=default,reverse
+# vi/emacs command mode inside the prompt — bold instead of a second colour, so
+# the mode is still distinguishable without pinning anything.
+_tm set -g message-command-style bg=default,fg=default,reverse,bold
