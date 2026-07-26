@@ -24,6 +24,7 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `prefix + Space` → `e` | **edit reminders** — pop open the reminders file in `$EDITOR` |
 | `prefix + Space` → `a` | **add reminder** — type a line, it's appended to the reminders file (quick capture) |
 | status bar | a **labelled legend** — `[S]` sessions · `[G]` git context · centred window list · `[R]` reminders (its own row), each a colored section tag |
+| hold the prefix | a **`PREFIX` chip** lights up on the right, next to the standing `prefix + Space = menu` hint |
 | `[G]` git context | active pane's **branch + dirty/ahead/behind** — vanishes outside a repo |
 | reminders | a **`[R]` row** of inline notes and/or a file you keep updated — appears automatically when configured |
 | open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
@@ -103,7 +104,8 @@ set -g @cockpit-color-reminders green     # [R] accent: tag + reminder text
 set -g @cockpit-color-git       magenta   # [G] accent: tag + branch text
 
 # Same reasoning applies to tmux's OWN theme-blind styles: the status bar
-# (`bg=green,fg=black`), the prompt bar (rename window, `branch:`, `reminder:`),
+# (`bg=green,fg=black`), the right-hand PREFIX chip + menu hint (tmux puts a clock
+# there), the prompt bar (rename window, `branch:`, `reminder:`),
 # copy-mode (selection, search hits, mark) and the prefix+Space menu selection all
 # ship as `<ansi hue> on fg=black`, unreadable on a theme whose palette is dark
 # (GitHub Dark's yellow is #9e6a03). cockpit repaints them with `reverse` so the ink
