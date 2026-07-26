@@ -82,6 +82,24 @@ _mkrepo() {
   [[ ! "$output" =~ yellow ]]
 }
 
+@test "copy-mode and the menu keep their hue but drop the pinned black ink" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  for opt in mode-style copy-mode-match-style copy-mode-current-match-style \
+             copy-mode-mark-style menu-selected-style; do
+    run tmux -L "$COCKPIT_SOCKET" show-option -gv "$opt"
+    [[ "$output" == *"reverse"* ]]
+    [[ ! "$output" =~ fg=black ]]
+    [[ ! "$output" =~ colour[0-9] ]]
+  done
+}
+
+@test "the menu selection follows the [S] accent, pin included" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-sessions colour111
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv menu-selected-style
+  [[ "$output" == *"fg=colour111"* ]]
+}
+
 @test "the accents are still pinnable to a fixed colour" {
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-sessions colour111
   run bash "$SCRIPTS/session-list.sh"

@@ -115,3 +115,15 @@ _tm set -g message-style bg=default,fg=default,reverse
 # vi/emacs command mode inside the prompt — bold instead of a second colour, so
 # the mode is still distinguishable without pinning anything.
 _tm set -g message-command-style bg=default,fg=default,reverse,bold
+
+# Everything else tmux paints as `<some ansi colour> on fg=black`. The hue still
+# carries the meaning (yellow selection, cyan match, magenta current match, red
+# mark), so keep the hue and drop only the pinned black ink: `reverse` paints the
+# text in the TERMINAL'S OWN background instead, which is dark on a dark theme and
+# light on a light one. Identical reasoning to the [S]/[R]/[G] chips.
+_tm set -g mode-style "fg=yellow,reverse"                     # copy-mode selection
+_tm set -g copy-mode-match-style "fg=cyan,reverse"            # search hits
+_tm set -g copy-mode-current-match-style "fg=magenta,reverse" # the hit you are on
+_tm set -g copy-mode-mark-style "fg=red,reverse"              # the mark
+# prefix+Space menu — cockpit's own surface, so its selection follows the [S] accent.
+_tm set -g menu-selected-style "fg=$c_sessions,reverse,bold"
