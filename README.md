@@ -107,6 +107,9 @@ set -g @cockpit-color-git       magenta   # [G] accent: tag + branch text
 # cockpit sets `message-style` to the terminal's own fg/bg reversed, replacing
 # tmux's `bg=yellow,fg=black` default — unreadable on themes whose ansi yellow is
 # a dark ochre. Override with your own `set -g message-style` after the plugin run.
+# Copy-mode (selection, search hits, mark) and the prefix+Space menu selection get
+# the same treatment — the hue still carries the meaning, only the pinned `fg=black`
+# ink is gone. The menu selection follows @cockpit-color-sessions.
 
 # add your own entries to the prefix+Space menu: "label" key "command" ...
 set -g @cockpit-menu-extra '"deploy" G "run-shell ~/bin/deploy"  "kill server" K "kill-server"'
