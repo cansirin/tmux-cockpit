@@ -98,18 +98,18 @@ set -g @cockpit-reminders "ship the PR"
 # 256-palette value here instead if you'd rather they never move.
 # The filled [S]/[R]/[G] chips are drawn with `reverse`, so their letter is
 # painted in the terminal's own background colour — there is no ink option.
-# (The bar background and the current-window colour are your own native tmux
-# options — `status-style` and `window-status-current-format`.)
 set -g @cockpit-color-sessions  blue      # [S] accent: tag + session text + active chip
 set -g @cockpit-color-reminders green     # [R] accent: tag + reminder text
 set -g @cockpit-color-git       magenta   # [G] accent: tag + branch text
 
-# Same reasoning applies to tmux's OWN theme-blind styles: the prompt bar (rename
-# window, `branch:`, `reminder:`), copy-mode (selection, search hits, mark) and the
-# prefix+Space menu selection all ship as `<ansi hue> on fg=black`, which is
-# unreadable on a theme whose palette is dark (GitHub Dark's yellow is #9e6a03).
-# cockpit repaints them with `reverse` so the ink is the terminal's own background.
-# It only ever replaces a value tmux itself shipped — set `message-style`,
+# Same reasoning applies to tmux's OWN theme-blind styles: the status bar
+# (`bg=green,fg=black`), the prompt bar (rename window, `branch:`, `reminder:`),
+# copy-mode (selection, search hits, mark) and the prefix+Space menu selection all
+# ship as `<ansi hue> on fg=black`, unreadable on a theme whose palette is dark
+# (GitHub Dark's yellow is #9e6a03). cockpit repaints them with `reverse` so the ink
+# is the terminal's own background, and centres the window list so the main row's
+# three groups spread space-between.
+# It only ever replaces a value tmux itself shipped — set `status-style`,
 # `mode-style` & co. yourself and yours is kept. This opts out of the lot:
 set -g @cockpit-fix-tmux-defaults off     # default: on
 
