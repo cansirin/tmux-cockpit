@@ -124,6 +124,10 @@ _mkrepo() {
   done
   run tmux -L "$COCKPIT_SOCKET" show-option -gv status-justify
   [ "$output" = left ]
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-right
+  [[ "$output" == *"pane_title"* ]]     # still tmux's title-and-clock
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-right-length
+  [ "$output" = 40 ]
 }
 
 # The chips are drawn ON the status bar, so they can only resolve to the terminal's
@@ -136,6 +140,43 @@ _mkrepo() {
   [ "$output" = centre ]
   run tmux -L "$COCKPIT_SOCKET" show-option -gv window-status-current-style
   [[ "$output" == *"fg=blue,reverse,bold"* ]]
+}
+
+# `white` is ansi slot 7, which a light theme may resolve to a mid GREY (GitHub
+# Light: #6e7781) — so bg=red,fg=white renders as grey-on-red mud. The chip has to
+# take its ink from the terminal via reverse, like every other chip in the plugin.
+@test "the PREFIX chip takes its ink from the terminal, not a hardcoded white" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-right
+  [[ "$output" == *"PREFIX"* ]]
+  [[ "$output" == *"fg=red"* ]]
+  [[ "$output" == *"reverse"* ]]
+  [[ ! "$output" =~ fg=white ]]
+  [[ ! "$output" =~ bg=red ]]
+  [[ "$output" == *"Space = menu"* ]]   # the menu stays advertised
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-right-length
+  [ "$output" = 80 ]
+}
+
+# The chip lives inside a #{?client_prefix,…} conditional, so its commas must be
+# escaped or tmux reads them as the conditional's own argument separator and the
+# style leaks into the bar as literal text.
+@test "the status-right hint renders, and follows a rebound prefix" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" display -p '#{T:status-right}'
+  [[ "$output" == *"C-b Space = menu"* ]]
+  [[ ! "$output" =~ PREFIX ]]           # only while the prefix is actually held
+
+  tmux -L "$COCKPIT_SOCKET" set -g prefix C-a
+  run tmux -L "$COCKPIT_SOCKET" display -p '#{T:status-right}'
+  [[ "$output" == *"C-a Space = menu"* ]]
+}
+
+@test "a status-right the user wrote themselves is left untouched" {
+  tmux -L "$COCKPIT_SOCKET" set -g status-right "%H:%M mine"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-right
+  [ "$output" = "%H:%M mine" ]
 }
 
 @test "a status bar the user styled themselves is left untouched" {

@@ -150,6 +150,22 @@ cockpit_restyle status-justify centre                left
 # the current window is the one thing in the centred list that needs to stand out
 cockpit_restyle window-status-current-style "fg=$c_sessions,reverse,bold" default
 
+# The right group the centred layout leaves room for: a PREFIX indicator plus the
+# one hint that makes the whole plugin discoverable. tmux ships the pane title and
+# a clock there instead, so a fresh install centred its window list against nothing
+# and never advertised the menu. `fg=red,reverse` and NOT `bg=red,fg=white` —
+# `white` is ansi slot 7, which GitHub Light resolves to a GRAY (#6e7781), so
+# white-on-red renders as grey-on-red mud. Reverse takes the ink from the terminal.
+# The chip sits inside a #{?client_prefix,…,…} conditional, so its own commas have
+# to be escaped as `#,` or tmux reads them as the conditional's argument separator.
+# #{prefix} is the live prefix option, so a rebound prefix relabels the hint itself.
+prefix_chip="#[fg=red#,reverse#,bold] PREFIX #[default]"
+cockpit_restyle status-right \
+  "#{?client_prefix,$prefix_chip ,}#[bold]#{prefix} Space = menu#[default] " \
+  '#{?window_bigger,[#{window_offset_x}#,#{window_offset_y}] ,}"#{=21:pane_title}" %H:%M %d-%b-%y'
+# the hint plus the chip does not fit tmux's 40-column default
+cockpit_restyle status-right-length 80 40
+
 # the prompt bar: rename window, rename session, `branch:`, `reminder:` …
 cockpit_restyle message-style         bg=default,fg=default,reverse      bg=yellow,fg=black
 # vi/emacs command mode inside the prompt — bold rather than a second pinned hue
