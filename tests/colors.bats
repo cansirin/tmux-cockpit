@@ -68,6 +68,20 @@ _mkrepo() {
   [[ "$output" == *"fg=magenta,reverse,bold"* ]]
 }
 
+@test "the prompt bar inherits the terminal's own fg/bg, not tmux's yellow default" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv message-style
+  [[ "$output" == *"bg=default"* ]]
+  [[ "$output" == *"fg=default"* ]]
+  [[ "$output" == *"reverse"* ]]
+  [[ ! "$output" =~ yellow ]]
+
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv message-command-style
+  [[ "$output" == *"bg=default"* ]]
+  [[ "$output" == *"fg=default"* ]]
+  [[ ! "$output" =~ yellow ]]
+}
+
 @test "the accents are still pinnable to a fixed colour" {
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-sessions colour111
   run bash "$SCRIPTS/session-list.sh"

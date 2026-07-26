@@ -103,6 +103,10 @@ set -g @cockpit-reminders "ship the PR"
 set -g @cockpit-color-sessions  blue      # [S] accent: tag + session text + active chip
 set -g @cockpit-color-reminders green     # [R] accent: tag + reminder text
 set -g @cockpit-color-git       magenta   # [G] accent: tag + branch text
+# Same reasoning applies to the prompt bar (rename window, `branch:`, `reminder:`):
+# cockpit sets `message-style` to the terminal's own fg/bg reversed, replacing
+# tmux's `bg=yellow,fg=black` default — unreadable on themes whose ansi yellow is
+# a dark ochre. Override with your own `set -g message-style` after the plugin run.
 
 # add your own entries to the prefix+Space menu: "label" key "command" ...
 set -g @cockpit-menu-extra '"deploy" G "run-shell ~/bin/deploy"  "kill server" K "kill-server"'
