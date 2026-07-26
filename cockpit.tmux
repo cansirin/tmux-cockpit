@@ -21,6 +21,9 @@
 #   Defaults are NAMED ansi slots, which the terminal resolves from its ACTIVE
 #   theme — so the accents follow a light/dark flip for free. Any tmux colour
 #   works if you'd rather pin one (e.g. colour111).
+#   @cockpit-fix-tmux-defaults  'off' leaves tmux's own theme-blind prompt-bar,
+#                       copy-mode and menu styles alone (default: on, and it only
+#                       ever replaces a value tmux shipped — never one you set)
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS="$CURRENT_DIR/scripts"
@@ -105,25 +108,45 @@ else
   _tm set -g status on
 fi
 
-# Prompt / message bar (rename window, rename session, `branch:`, `reminder:` …).
-# tmux ships `bg=yellow,fg=black`, which assumes the terminal's ansi yellow is a
-# bright pastel. On themes whose yellow is a dark ochre (GitHub Dark, gruvbox,
-# solarized) that is dark-on-dark and the text you are typing is unreadable. Same
-# trick as the chips: `reverse` on the TERMINAL'S OWN fg/bg, so the bar is always
-# the theme's own maximum contrast and flips with a light/dark switch for free.
-_tm set -g message-style bg=default,fg=default,reverse
-# vi/emacs command mode inside the prompt — bold instead of a second colour, so
-# the mode is still distinguishable without pinning anything.
-_tm set -g message-command-style bg=default,fg=default,reverse,bold
+# ── theme-blind tmux defaults ──────────────────────────────────────────────────
+# tmux paints its prompt bar, copy-mode and menus as `<ansi hue> on fg=black`,
+# which assumes those hues are bright pastels. On a theme whose ansi palette is
+# dark (GitHub Dark's yellow is #9e6a03, cyan #1b7c83) that is dark-on-dark and
+# the text is unreadable. cockpit repaints them with the same trick as the
+# [S]/[R]/[G] chips: `reverse`, so the ink is the TERMINAL'S OWN background —
+# dark on a dark theme, light on a light one, following a theme flip for free.
+#
+# These are NATIVE tmux options, not cockpit's, so cockpit only ever replaces a
+# value tmux itself shipped. Anything you set stays yours, and
+# `@cockpit-fix-tmux-defaults off` opts out of the whole section.
+fix_defaults="$(cockpit_opt @cockpit-fix-tmux-defaults on)"
 
-# Everything else tmux paints as `<some ansi colour> on fg=black`. The hue still
-# carries the meaning (yellow selection, cyan match, magenta current match, red
-# mark), so keep the hue and drop only the pinned black ink: `reverse` paints the
-# text in the TERMINAL'S OWN background instead, which is dark on a dark theme and
-# light on a light one. Identical reasoning to the [S]/[R]/[G] chips.
-_tm set -g mode-style "fg=yellow,reverse"                     # copy-mode selection
-_tm set -g copy-mode-match-style "fg=cyan,reverse"            # search hits
-_tm set -g copy-mode-current-match-style "fg=magenta,reverse" # the hit you are on
-_tm set -g copy-mode-mark-style "fg=red,reverse"              # the mark
-# prefix+Space menu — cockpit's own surface, so its selection follows the [S] accent.
-_tm set -g menu-selected-style "fg=$c_sessions,reverse,bold"
+# cockpit_restyle OPTION NEW TMUX_DEFAULT... — write NEW only when OPTION still
+# reads as one of the listed tmux defaults, or as what cockpit itself last wrote
+# (remembered in @cockpit-restyled-OPTION, so a config reload or a re-pinned
+# accent still lands). Any other value is the user's own and is left untouched.
+cockpit_restyle() {
+  local opt="$1" new="$2" cur mine d
+  shift 2
+  [ "$fix_defaults" = off ] && return 0
+  cur="$(_tm show-option -gqv "$opt" 2>/dev/null)"
+  mine="$(_tm show-option -gqv "@cockpit-restyled-$opt" 2>/dev/null)"
+  for d in "$@" ${mine:+"$mine"}; do
+    [ "$cur" = "$d" ] || continue
+    _tm set -g "$opt" "$new"
+    _tm set -g "@cockpit-restyled-$opt" "$new"
+    return 0
+  done
+}
+
+# the prompt bar: rename window, rename session, `branch:`, `reminder:` …
+cockpit_restyle message-style         bg=default,fg=default,reverse      bg=yellow,fg=black
+# vi/emacs command mode inside the prompt — bold rather than a second pinned hue
+cockpit_restyle message-command-style bg=default,fg=default,reverse,bold bg=black,fg=yellow
+# copy-mode: the hue is what carries the meaning, so keep it and drop the ink only
+cockpit_restyle mode-style                    fg=yellow,reverse  noattr,bg=yellow,fg=black bg=yellow,fg=black
+cockpit_restyle copy-mode-match-style         fg=cyan,reverse    bg=cyan,fg=black
+cockpit_restyle copy-mode-current-match-style fg=magenta,reverse bg=magenta,fg=black
+cockpit_restyle copy-mode-mark-style          fg=red,reverse     bg=red,fg=black
+# prefix+Space menu — cockpit's own surface, so its selection follows the [S] accent
+cockpit_restyle menu-selected-style "fg=$c_sessions,reverse,bold" bg=yellow,fg=black
