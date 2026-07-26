@@ -117,10 +117,36 @@ _mkrepo() {
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-fix-tmux-defaults off
   COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
   for opt in message-style message-command-style mode-style menu-selected-style \
-             copy-mode-match-style copy-mode-current-match-style copy-mode-mark-style; do
+             copy-mode-match-style copy-mode-current-match-style copy-mode-mark-style \
+             status-style; do
     run tmux -L "$COCKPIT_SOCKET" show-option -gv "$opt"
     [[ "$output" == *"yellow"* || "$output" == *"fg=black"* ]]
   done
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-justify
+  [ "$output" = left ]
+}
+
+# The chips are drawn ON the status bar, so they can only resolve to the terminal's
+# theme if the bar underneath them is the terminal's own colours, not tmux's green.
+@test "the status bar cockpit draws on is the terminal's own, and the list is centred" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-style
+  [ "$output" = "bg=default,fg=default" ]
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-justify
+  [ "$output" = centre ]
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv window-status-current-style
+  [[ "$output" == *"fg=blue,reverse,bold"* ]]
+}
+
+@test "a status bar the user styled themselves is left untouched" {
+  tmux -L "$COCKPIT_SOCKET" set -g status-style "bg=colour235,fg=colour250"
+  tmux -L "$COCKPIT_SOCKET" set -g status-justify right
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-style
+  [ "$output" = "bg=colour235,fg=colour250" ]
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-justify
+  [ "$output" = right ]
 }
 
 @test "a re-pinned accent still lands on a style cockpit already restyled" {

@@ -21,9 +21,10 @@
 #   Defaults are NAMED ansi slots, which the terminal resolves from its ACTIVE
 #   theme — so the accents follow a light/dark flip for free. Any tmux colour
 #   works if you'd rather pin one (e.g. colour111).
-#   @cockpit-fix-tmux-defaults  'off' leaves tmux's own theme-blind prompt-bar,
-#                       copy-mode and menu styles alone (default: on, and it only
-#                       ever replaces a value tmux shipped — never one you set)
+#   @cockpit-fix-tmux-defaults  'off' leaves tmux's own theme-blind styles alone —
+#                       the status bar, prompt bar, copy-mode and menus (default:
+#                       on, and it only ever replaces a value tmux shipped —
+#                       never one you set)
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS="$CURRENT_DIR/scripts"
@@ -81,9 +82,9 @@ _tm set -g pane-border-status top
 _tm set -g pane-border-format ' #{session_name} · #{pane_title} '
 
 # Two-row labelled status. The main row spreads three groups space-between
-# (status-justify centre, set in user config): [S] sessions on the left, the
-# window list centred, the prefix/menu hint (status-right) on the right. The
-# current window stays the user's window-status-current-format accent, so no
+# (status-justify centre, repaired below when tmux's `left` is still in place):
+# [S] sessions on the left, the window list centred, the prefix/menu hint
+# (status-right) on the right. The current window carries the [S] accent, so no
 # separate [W] chip is needed once the list is centred on its own. Reminders get
 # their OWN row (row 1), marked by the [R] tag. Coloured tags read as a legend;
 # content tinted. Section colours are tunable (@cockpit-color-*); the render
@@ -138,6 +139,16 @@ cockpit_restyle() {
     return 0
   done
 }
+
+# The status bar cockpit draws ON. tmux ships it green-with-black-ink, so a fresh
+# install reverses cockpit's blue [S] chip against green — the accents can only
+# read as the terminal's theme if the bar underneath them IS the terminal. The
+# window list has to be centred too, or the main row's three groups (sessions ·
+# windows · hint) collapse onto the left instead of spreading space-between.
+cockpit_restyle status-style   bg=default,fg=default bg=green,fg=black
+cockpit_restyle status-justify centre                left
+# the current window is the one thing in the centred list that needs to stand out
+cockpit_restyle window-status-current-style "fg=$c_sessions,reverse,bold" default
 
 # the prompt bar: rename window, rename session, `branch:`, `reminder:` …
 cockpit_restyle message-style         bg=default,fg=default,reverse      bg=yellow,fg=black
