@@ -12,9 +12,26 @@ else
   extra="$(_tm show-option -gqv @cockpit-extra 2>/dev/null)"
   eval "roots=($paths)"        # expand ~ and globs
   eval "extra_dirs=($extra)"   # literal dirs to include verbatim
+
+  # Three sources, unioned:
+  #   1. the depth-1 scan of @cockpit-paths — every child of a configured root
+  #   2. @cockpit-extra — literal dirs, the explicit escape hatch for a one-off
+  #      project that lives nowhere near a root
+  #   3. zoxide's frecency list, when zoxide is installed — anything you have
+  #      actually cd'd into is pickable with no config at all. This is what stops
+  #      "why isn't my project in the list?" from being a config bug: a project
+  #      outside every root becomes findable the moment you visit it once.
+  # zoxide entries are filtered to still-existing dirs (its db keeps stale paths)
+  # and capped, so one huge history can't drown the curated roots. Set
+  # @cockpit-zoxide off to opt out; @cockpit-zoxide-limit tunes the cap.
   selected="$( {
       find "${roots[@]}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null
       [[ ${#extra_dirs[@]} -gt 0 ]] && printf '%s\n' "${extra_dirs[@]}"
+      if [[ "$(cockpit_opt @cockpit-zoxide on)" != off ]] && command -v zoxide >/dev/null 2>&1; then
+        zoxide query -l 2>/dev/null \
+          | head -n "$(cockpit_opt @cockpit-zoxide-limit 200)" \
+          | while IFS= read -r d; do [[ -d "$d" ]] && printf '%s\n' "$d"; done
+      fi
     } | sort -u | fzf --prompt='project ❯ ' --height=50% --reverse )"
 fi
 [[ -z "$selected" ]] && exit 0
@@ -23,7 +40,7 @@ base="$(cockpit_session_name "$selected")"
 name="$(cockpit_resolve_name "$base" "$selected")"
 
 # Create the session (detached) if needed, then apply a layout (once, on create).
-# "=$name" forces an exact match so a prefix sibling (e.g. a "-crew") can't answer.
+# "=$name" forces an exact match so a prefix sibling can't answer for this name.
 if ! _tm has-session -t "=$name" 2>/dev/null; then
   _tm new-session -ds "$name" -c "$selected"
 

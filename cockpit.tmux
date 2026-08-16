@@ -9,6 +9,11 @@
 # Options (set in ~/.tmux.conf before `run '~/.tmux/plugins/tpm/tpm'`):
 #   @cockpit-paths      dirs to scan for projects (space-separated, ~ and globs ok)
 #   @cockpit-extra      literal dirs to include in the picker verbatim
+#   @cockpit-zoxide     'off' drops zoxide's frecency list from the picker. On by
+#                       default (when zoxide is installed): anything you've cd'd
+#                       into is pickable, so a project outside every root needs
+#                       no config at all
+#   @cockpit-zoxide-limit  how many zoxide entries to take (default 200)
 #   @cockpit-main-cmd   command launched in the cockpit's main pane (e.g. 'claude')
 #   @cockpit-layouts    optional dir of per-project layouts (<session-name>.sh)
 #   @cockpit-menu-extra extra prefix+Space menu entries, as: '"label" key "command" ...'
@@ -46,8 +51,6 @@ menu=(
   "next / prev win"   "." "next-window"
   ""
   "JUMP to project"   f  "$picker"
-  "launch CREW here"  c  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/crew.sh'"
-  "crew STAND-UP"     C  "display-popup -E -d '#{pane_current_path}' 'COCKPIT_POPUP=1 $SCRIPTS/crew-init.sh'"
   "worktree status"   w  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-status.sh | less -R'"
   "new worktree"      W  "command-prompt -p 'branch:' \"display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-new.sh %%'\""
   "prune worktrees"   p  "display-popup -E -d '#{pane_current_path}' '$SCRIPTS/wt-prune.sh | less -R'"
