@@ -43,3 +43,17 @@ for src in "$SCRIPT_DIR"/tmsg.sh "$SCRIPT_DIR"/wt-*.sh; do
   ln -s "$src" "$dest"
   echo "linked  $dest -> $src"
 done
+
+# Prune our OWN dangling links: a symlink pointing into this plugin's scripts dir
+# whose target no longer exists — what a previously-linked script that has since
+# been removed from the plugin leaves behind (it would otherwise stay on $PATH
+# forever, resolving to a confusing "No such file or directory"). Scoped to links
+# we could have created, so a symlink to anything else is never touched.
+for dest in "$bin_dir"/*; do
+  [ -L "$dest" ] || continue
+  target="$(readlink "$dest")"
+  case "$target" in "$SCRIPT_DIR"/*) ;; *) continue ;; esac
+  [ -e "$target" ] && continue
+  rm -f "$dest"
+  echo "pruned  $dest -> $target (gone)"
+done

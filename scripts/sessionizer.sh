@@ -28,8 +28,14 @@ else
       find "${roots[@]}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null
       [[ ${#extra_dirs[@]} -gt 0 ]] && printf '%s\n' "${extra_dirs[@]}"
       if [[ "$(cockpit_opt @cockpit-zoxide on)" != off ]] && command -v zoxide >/dev/null 2>&1; then
+        # A non-numeric limit would make `head` fail and print its usage error
+        # INTO the picker (this whole block is a command substitution feeding
+        # fzf), so a bad value falls back to the default rather than corrupting
+        # the candidate list.
+        limit="$(cockpit_opt @cockpit-zoxide-limit 200)"
+        [[ "$limit" =~ ^[0-9]+$ ]] || limit=200
         zoxide query -l 2>/dev/null \
-          | head -n "$(cockpit_opt @cockpit-zoxide-limit 200)" \
+          | head -n "$limit" \
           | while IFS= read -r d; do [[ -d "$d" ]] && printf '%s\n' "$d"; done
       fi
     } | sort -u | fzf --prompt='project ❯ ' --height=50% --reverse )"

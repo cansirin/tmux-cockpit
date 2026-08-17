@@ -59,3 +59,23 @@ setup() {
   [ -d "$deep" ]
   [ -L "$deep/tmsg" ]
 }
+
+@test "prunes a dangling link into the plugin (a script the plugin no longer ships)" {
+  mkdir -p "$BIN"
+  # what a previously-linked, since-removed script leaves behind
+  ln -s "$SCRIPTS/gone-away.sh" "$BIN/gone-away"
+  run bash "$SCRIPTS/link.sh" "$BIN"
+  [ "$status" -eq 0 ]
+  [ ! -e "$BIN/gone-away" ]
+  [ ! -L "$BIN/gone-away" ]
+  [[ "$output" == *"pruned"* ]]
+  [ -L "$BIN/tmsg" ]                          # the live links are untouched
+}
+
+@test "never prunes a dangling link that points outside the plugin" {
+  mkdir -p "$BIN"
+  ln -s /somewhere/else/not-ours "$BIN/not-ours"
+  run bash "$SCRIPTS/link.sh" "$BIN"
+  [ "$status" -eq 0 ]
+  [ -L "$BIN/not-ours" ]                      # someone else's link, left alone
+}

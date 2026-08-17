@@ -164,3 +164,22 @@ teardown() {
   [[ "$output" == *"$root/inroot"* ]]
   [[ "$output" != *"$visited"* ]]
 }
+
+@test "a non-numeric @cockpit-zoxide-limit falls back, never leaking head's error into the picker" {
+  root="$BATS_TEST_TMPDIR/roots"; mkdir -p "$root/inroot"
+  visited="$BATS_TEST_TMPDIR/desktop/visited"; mkdir -p "$visited"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s"\n' "$visited" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-zoxide-limit 'not-a-number'
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" == *"$visited"* ]]     # zoxide source survives the bad value
+  [[ "$output" != *"illegal"* ]]      # and head's usage error never lands in the list
+  [[ "$output" != *"usage"* ]]
+}
