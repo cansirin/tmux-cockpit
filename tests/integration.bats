@@ -54,7 +54,7 @@ teardown() {
   run tmux -L "$COCKPIT_SOCKET" list-keys -T prefix
   [[ "$output" == *"rename window"* ]]   # a restored default entry
   [[ "$output" == *"reload config"* ]]   # another restored default entry
-  [[ "$output" == *"launch CREW here"* ]] # the built-in crew launcher entry
+  [[ "$output" == *"JUMP to project"* ]] # the built-in project picker entry
   [[ "$output" == *"edit reminders"* ]]  # the reminders editor entry
   [[ "$output" == *"add reminder"* ]]    # the quick-capture entry
   [[ "$output" == *"hello extra"* ]]     # the user-supplied extra entry
@@ -64,97 +64,6 @@ teardown() {
   COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
   run tmux -L "$COCKPIT_SOCKET" show-option -gv status-left
   [[ "$output" == *"git-context.sh"* ]]
-}
-
-@test "crew launches three panes in one window (default layout), all visible" {
-  proj="$BATS_TEST_TMPDIR/crewproj"
-  mkdir -p "$proj"
-  # harmless per-pane command + no boot wait, so the test doesn't launch claude
-  # or block; TMUX set (dummy) forces the non-blocking switch-client branch.
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
-  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
-  # one window...
-  run tmux -L "$COCKPIT_SOCKET" list-windows -t crewproj-crew
-  [ "${#lines[@]}" -eq 1 ]
-  # ...split into three panes, titled with the three seams
-  run tmux -L "$COCKPIT_SOCKET" list-panes -t crewproj-crew -F '#{pane_title}'
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 3 ]
-  [[ "$output" == *"triage"* ]]
-  [[ "$output" == *"em"* ]]
-  [[ "$output" == *"ea"* ]]
-}
-
-@test "crew reads seam names from .claude/crew.config.jsonc (pane titles)" {
-  proj="$BATS_TEST_TMPDIR/cfgproj"
-  mkdir -p "$proj/.claude"
-  cat > "$proj/.claude/crew.config.jsonc" <<'JSON'
-{
-  // fictional stand-up — names only, no real operator data
-  "tmux": { "session": "crew", "windows": { "ea": "front", "engineeringManager": "build", "triage": "intake" } },
-  "modelTiers": { "ea": "planning-tier", "engineeringManager": "build-tier", "triage": "planning-tier" }
-}
-JSON
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
-  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
-  run tmux -L "$COCKPIT_SOCKET" list-panes -t cfgproj-crew -F '#{pane_title}'
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"intake"* ]]
-  [[ "$output" == *"build"* ]]
-  [[ "$output" == *"front"* ]]
-}
-
-@test "crew (panes) hands agents a runtime config whose windows.* are pane targets" {
-  proj="$BATS_TEST_TMPDIR/rtproj"
-  mkdir -p "$proj/.claude"
-  cat > "$proj/.claude/crew.config.jsonc" <<'JSON'
-{
-  "tmux": { "session": "crew", "windows": { "ea": "ea", "engineeringManager": "em", "triage": "triage" } },
-  "modelTiers": { "ea": "planning-tier", "engineeringManager": "build-tier", "triage": "planning-tier" }
-}
-JSON
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
-  rt="$BATS_TEST_TMPDIR/runtime.jsonc"
-  COCKPIT_CREW_RUNTIME="$rt" TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
-  [ -f "$rt" ]
-  # windows.* rewritten to win.pane targets (digits.digits), NOT the names
-  run grep -E '"ea": "[0-9]+\.[0-9]+"' "$rt"
-  [ "$status" -eq 0 ]
-  grep -qE '"engineeringManager": "[0-9]+\.[0-9]+"' "$rt"
-  grep -qE '"triage": "[0-9]+\.[0-9]+"' "$rt"
-  # modelTiers untouched — the scoped rewrite must not bleed into it
-  grep -q '"ea": "planning-tier"' "$rt"
-  grep -q '"engineeringManager": "build-tier"' "$rt"
-}
-
-@test "crew @cockpit-crew-layout windows gives three windows instead" {
-  proj="$BATS_TEST_TMPDIR/winproj"
-  mkdir -p "$proj"
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-layout windows
-  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
-  run tmux -L "$COCKPIT_SOCKET" list-windows -t winproj-crew -F '#{window_name}'
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 3 ]
-  [[ "$output" == *"triage"* ]]
-  [[ "$output" == *"em"* ]]
-  [[ "$output" == *"ea"* ]]
-  tmux -L "$COCKPIT_SOCKET" set -gu @cockpit-crew-layout   # reset for later tests
-}
-
-@test "crew re-focuses an existing session instead of spawning a second" {
-  proj="$BATS_TEST_TMPDIR/dup"
-  mkdir -p "$proj"
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-main-cmd 'true'
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-crew-boot-wait 0
-  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
-  TMUX="fake" bash "$SCRIPTS/crew.sh" "$proj" 2>/dev/null || true
-  run tmux -L "$COCKPIT_SOCKET" list-sessions -F '#{session_name}'
-  [[ "$(printf '%s\n' "$output" | grep -c '^dup-crew$')" -eq 1 ]]
 }
 
 @test "sessionizer creates a session from a path argument" {
@@ -190,14 +99,14 @@ JSON
   [ "$(printf '%s\n' "$names" | grep -cE '^app-[0-9a-f]{6}$')" -eq 1 ]
 }
 
-@test "a prefix sibling (foo-crew) does not steal the plain foo session name" {
+@test "a prefix sibling (foo-sandbox) does not steal the plain foo session name" {
   # regression: tmux prefix-matches a bare target, so has-session for "foo" used
-  # to answer true when only "foo-crew" existed — wrongly disambiguating "foo".
+  # to answer true when only "foo-sandbox" existed — wrongly disambiguating "foo".
   # The resolver anchors with "=foo", so a plain foo still gets its plain name.
   proj="$BATS_TEST_TMPDIR/plain/foo"
   mkdir -p "$proj"
-  tmux -L "$COCKPIT_SOCKET" new-session -ds foo-crew
-  tmux -L "$COCKPIT_SOCKET" set -t foo-crew @cockpit-path "/somewhere/else/foo"
+  tmux -L "$COCKPIT_SOCKET" new-session -ds foo-sandbox
+  tmux -L "$COCKPIT_SOCKET" set -t foo-sandbox @cockpit-path "/somewhere/else/foo"
   TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$proj" 2>/dev/null || true
   run tmux -L "$COCKPIT_SOCKET" has-session -t "=foo"
   [ "$status" -eq 0 ]   # a session named exactly "foo" was created, not "foo-<hash>"
@@ -213,4 +122,64 @@ JSON
   TMUX="fake" bash "$SCRIPTS/sessionizer.sh" "$proj" 2>/dev/null || true
   run tmux -L "$COCKPIT_SOCKET" show-option -t bar -qv @cockpit-path
   [ "$output" = "$proj" ]
+}
+
+@test "picker unions the depth-1 scan, @cockpit-extra, and zoxide's frecency list" {
+  # The picker is normally interactive, so stub fzf (echo the candidate list to a
+  # file, pick nothing) and zoxide (a fixed frecency list) onto PATH.
+  root="$BATS_TEST_TMPDIR/roots"; mkdir -p "$root/inroot"
+  loose="$BATS_TEST_TMPDIR/elsewhere/loose"; mkdir -p "$loose"
+  visited="$BATS_TEST_TMPDIR/desktop/visited by hand"; mkdir -p "$visited"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s" "/gone/stale"\n' "$visited" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-extra "$loose"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" == *"$root/inroot"* ]]   # 1. a child of a configured root
+  [[ "$output" == *"$loose"* ]]         # 2. a literal @cockpit-extra dir
+  [[ "$output" == *"$visited"* ]]       # 3. a zoxide-visited dir, in no root
+  [[ "$output" != *"/gone/stale"* ]]    # zoxide's stale entries are filtered out
+}
+
+@test "@cockpit-zoxide off drops the frecency source, keeping the configured roots" {
+  root="$BATS_TEST_TMPDIR/roots"; mkdir -p "$root/inroot"
+  visited="$BATS_TEST_TMPDIR/desktop/visited"; mkdir -p "$visited"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s"\n' "$visited" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-zoxide off
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" == *"$root/inroot"* ]]
+  [[ "$output" != *"$visited"* ]]
+}
+
+@test "a non-numeric @cockpit-zoxide-limit falls back, never leaking head's error into the picker" {
+  root="$BATS_TEST_TMPDIR/roots"; mkdir -p "$root/inroot"
+  visited="$BATS_TEST_TMPDIR/desktop/visited"; mkdir -p "$visited"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s"\n' "$visited" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-zoxide-limit 'not-a-number'
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" == *"$visited"* ]]     # zoxide source survives the bad value
+  [[ "$output" != *"illegal"* ]]      # and head's usage error never lands in the list
+  [[ "$output" != *"usage"* ]]
 }

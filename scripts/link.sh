@@ -20,10 +20,9 @@ bin_dir="${bin_dir/#\~/$HOME}"
 
 mkdir -p "$bin_dir" || { echo "link: cannot create bin dir $bin_dir" >&2; exit 1; }
 
-# The convention: tmsg, crew-init, plus every wt-* script. Globs that match nothing
-# expand to the literal pattern, so each candidate is existence-checked below.
-# (crew.sh / crew-seed.sh are invoked by path from the menu, not linked as CLIs.)
-for src in "$SCRIPT_DIR"/tmsg.sh "$SCRIPT_DIR"/crew-init.sh "$SCRIPT_DIR"/wt-*.sh; do
+# The convention: tmsg, plus every wt-* script. Globs that match nothing expand
+# to the literal pattern, so each candidate is existence-checked below.
+for src in "$SCRIPT_DIR"/tmsg.sh "$SCRIPT_DIR"/wt-*.sh; do
   [ -f "$src" ] || continue
   name="$(basename "$src" .sh)"
   dest="$bin_dir/$name"
@@ -43,4 +42,18 @@ for src in "$SCRIPT_DIR"/tmsg.sh "$SCRIPT_DIR"/crew-init.sh "$SCRIPT_DIR"/wt-*.s
 
   ln -s "$src" "$dest"
   echo "linked  $dest -> $src"
+done
+
+# Prune our OWN dangling links: a symlink pointing into this plugin's scripts dir
+# whose target no longer exists — what a previously-linked script that has since
+# been removed from the plugin leaves behind (it would otherwise stay on $PATH
+# forever, resolving to a confusing "No such file or directory"). Scoped to links
+# we could have created, so a symlink to anything else is never touched.
+for dest in "$bin_dir"/*; do
+  [ -L "$dest" ] || continue
+  target="$(readlink "$dest")"
+  case "$target" in "$SCRIPT_DIR"/*) ;; *) continue ;; esac
+  [ -e "$target" ] && continue
+  rm -f "$dest"
+  echo "pruned  $dest -> $target (gone)"
 done

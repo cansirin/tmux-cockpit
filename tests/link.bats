@@ -10,21 +10,14 @@ setup() {
   BIN="$BATS_TEST_TMPDIR/bin"
 }
 
-@test "links the wt-* scripts, tmsg, and crew-init, stripping the .sh" {
+@test "links the wt-* scripts and tmsg, stripping the .sh" {
   run bash "$SCRIPTS/link.sh" "$BIN"
   [ "$status" -eq 0 ]
   [ -L "$BIN/wt-status" ]
   [ -L "$BIN/wt-prune" ]
   [ -L "$BIN/tmsg" ]
-  [ -L "$BIN/crew-init" ]
   # the symlink resolves to the absolute source script
   [ "$(readlink "$BIN/wt-status")" = "$SCRIPTS/wt-status.sh" ]
-}
-
-@test "does NOT link crew.sh / crew-seed.sh (invoked by path, not bare commands)" {
-  bash "$SCRIPTS/link.sh" "$BIN"
-  [ ! -e "$BIN/crew" ]
-  [ ! -e "$BIN/crew-seed" ]
 }
 
 @test "does NOT link lib.sh (not in the convention set)" {
@@ -65,4 +58,24 @@ setup() {
   [ "$status" -eq 0 ]
   [ -d "$deep" ]
   [ -L "$deep/tmsg" ]
+}
+
+@test "prunes a dangling link into the plugin (a script the plugin no longer ships)" {
+  mkdir -p "$BIN"
+  # what a previously-linked, since-removed script leaves behind
+  ln -s "$SCRIPTS/gone-away.sh" "$BIN/gone-away"
+  run bash "$SCRIPTS/link.sh" "$BIN"
+  [ "$status" -eq 0 ]
+  [ ! -e "$BIN/gone-away" ]
+  [ ! -L "$BIN/gone-away" ]
+  [[ "$output" == *"pruned"* ]]
+  [ -L "$BIN/tmsg" ]                          # the live links are untouched
+}
+
+@test "never prunes a dangling link that points outside the plugin" {
+  mkdir -p "$BIN"
+  ln -s /somewhere/else/not-ours "$BIN/not-ours"
+  run bash "$SCRIPTS/link.sh" "$BIN"
+  [ "$status" -eq 0 ]
+  [ -L "$BIN/not-ours" ]                      # someone else's link, left alone
 }
