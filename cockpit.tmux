@@ -12,7 +12,10 @@
 #   @cockpit-zoxide     'off' drops zoxide's frecency list from the picker. On by
 #                       default (when zoxide is installed): anything you've cd'd
 #                       into is pickable, so a project outside every root needs
-#                       no config at all
+#                       no config at all. Those entries are filtered — no hidden
+#                       dirs, nothing at or above $HOME, and a nest collapses to
+#                       the one dir you actually work in (by frecency, so the
+#                       project beats the folder it sits in)
 #   @cockpit-zoxide-limit  how many zoxide entries to take (default 200)
 #   @cockpit-main-cmd   command launched in the cockpit's main pane (e.g. 'claude')
 #   @cockpit-layouts    optional dir of per-project layouts (<session-name>.sh)

@@ -183,3 +183,132 @@ teardown() {
   [[ "$output" != *"illegal"* ]]      # and head's usage error never lands in the list
   [[ "$output" != *"usage"* ]]
 }
+
+@test "picker offers the project, not the folder it sits in nor its subfolders" {
+  # end-to-end shape of the sofia case: the container and the subfolders are all
+  # in zoxide, and only the project itself should reach the picker.
+  root="$BATS_TEST_TMPDIR/roots"; mkdir -p "$root/inroot"
+  proj="$BATS_TEST_TMPDIR/desk/sofia - master"
+  mkdir -p "$proj/machine-learning/assignments" "$proj/security"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  # zoxide's own order: the project outranks the container it lives in
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s" "%s" "%s" "%s"\n' \
+    "$proj" "$proj/machine-learning/assignments" "$proj/security" \
+    "$BATS_TEST_TMPDIR/desk" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" == *"$proj"* ]]                      # the project is offered
+  [[ "$output" != *"$proj/machine-learning"* ]]     # its subfolders are not
+  [[ "$output" != *"$proj/security"* ]]
+  [[ "$output" == *"$root/inroot"* ]]               # configured roots unaffected
+  # the project outranks the container it sits in, so it comes first — the
+  # container is kept but ranked below, which is fzf's problem and not ours
+  first_zoxide="$(printf '%s\n' "$output" | grep "^$BATS_TEST_TMPDIR/desk" | head -1)"
+  [ "$first_zoxide" = "$proj" ]
+}
+
+@test "picker drops hidden dirs and anything at or above \$HOME" {
+  # HOME is redirected into the test tmpdir: cockpit_zoxide_keep is defined
+  # relative to $HOME, and nothing here may touch the developer's real home.
+  export HOME="$BATS_TEST_TMPDIR/home"
+  root="$BATS_TEST_TMPDIR/roots"; mkdir -p "$root/inroot"
+  mkdir -p "$HOME/.cockpit-test-hidden"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s" "%s" "/"\n' \
+    "$HOME/.cockpit-test-hidden" "$HOME" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" != *".cockpit-test-hidden"* ]]
+  [ "$(printf '%s\n' "$output" | grep -cx "$HOME")" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | grep -cx "/")" -eq 0 ]
+  [[ "$output" == *"$root/inroot"* ]]
+}
+
+@test "picker sorts the configured block instead of leaving it in dirent order" {
+  # `find` returns raw filesystem order; the section you curated must not arrive
+  # as an arbitrary shuffle. The zoxide block below it stays in frecency order.
+  root="$BATS_TEST_TMPDIR/sortroot"
+  mkdir -p "$root"/zebra "$root"/apple "$root"/mango "$root"/banana
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nexit 0\n' > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  names="$(printf '%s\n' "$output" | sed 's|.*/||')"
+  [ "$names" = "$(printf 'apple\nbanana\nmango\nzebra')" ]
+}
+
+@test "the zoxide cap applies to filtered entries, not raw history" {
+  # a history whose head is all hidden dirs must not spend the whole budget
+  # before reaching a real project
+  root="$BATS_TEST_TMPDIR/caproot"; mkdir -p "$root/inroot"
+  real="$BATS_TEST_TMPDIR/caphome/realproject"
+  export HOME="$BATS_TEST_TMPDIR/caphome"
+  mkdir -p "$real" "$HOME/.junk1" "$HOME/.junk2" "$HOME/.junk3"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s" "%s" "%s" "%s"\n' \
+    "$HOME/.junk1" "$HOME/.junk2" "$HOME/.junk3" "$real" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-zoxide-limit 1
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" == *"$real"* ]]   # the only survivor of the filter, so it fits in 1
+}
+
+@test "a configured root is never offered as a project, however often it is visited" {
+  # you named it as the place projects live IN, so it is a container by your own
+  # declaration — its children are the projects, it is not one
+  root="$BATS_TEST_TMPDIR/devroot"; mkdir -p "$root/realproj"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s" "%s"\n' "$root" "$root/realproj" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [ "$(printf '%s\n' "$output" | grep -cx "$root")" -eq 0 ]
+  [[ "$output" == *"$root/realproj"* ]]
+}
+
+@test "the root scan skips dot-dirs — .claude under a root is not a project" {
+  root="$BATS_TEST_TMPDIR/dotroot"
+  mkdir -p "$root/realproj" "$root/.claude" "$root/.github"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nexit 0\n' > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" == *"$root/realproj"* ]]
+  [[ "$output" != *".claude"* ]]
+  [[ "$output" != *".github"* ]]
+}

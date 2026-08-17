@@ -135,19 +135,50 @@ window scope.
 
 ## What the picker lists
 
-Three sources, unioned and deduped:
+Three sources, unioned:
 
 1. **every child of `@cockpit-paths`** — a depth-1 scan, so roots are *containers
    of projects*, not projects themselves
-2. **`@cockpit-extra`** — literal dirs, verbatim. The explicit escape hatch for a
-   project that lives nowhere near a root
+2. **`@cockpit-extra`** — literal dirs, verbatim
 3. **zoxide's frecency list**, when `zoxide` is installed — anything you've `cd`'d
-   into is pickable with **zero config**. Stale entries are filtered and the list
-   is capped (`@cockpit-zoxide-limit`, default 200) so one long history can't
-   drown the curated roots. `@cockpit-zoxide off` opts out.
+   into is pickable with **zero config**. Visit a folder once and it's there.
 
-Source 3 is why "why isn't my project in the picker?" stops being a config bug —
-visit a folder once and it's there.
+Sources 1 and 2 are what you *configured*, so they are offered as-is (minus
+dot-dirs — a root scan otherwise turns up `.claude` and `.github` as projects).
+Source 3 is what you *visited*, which is a noisier set, so it gets filtered:
+
+- **stale entries** are dropped (zoxide's db outlives the directories in it)
+- **hidden dirs and `$HOME` upward** are dropped — `~/.config/foo`, `~/`, `/Users`
+  are places you passed through, not projects
+- **a configured root** is never offered as a project. You named it as the place
+  projects live *in*, so it is a container by your own declaration
+- **a nest collapses to one row.** Having visited eleven folders under
+  `~/Desktop/sofia` should offer *sofia*, not eleven near-identical rows that push
+  the real one off the top
+
+Two things that collapse deliberately narrowly:
+
+A zoxide entry only suppresses its own **descendants**, never an ancestor. So
+`~/Desktop` stays on the list, ranked where zoxide ranks it — dropping ancestors
+also collapsed nests from the wrong end, letting a `~/work` you visit daily eat
+every project inside it.
+
+A configured path never suppresses anything. The depth-1 root scan is a
+mechanical listing, not a claim that each child is the whole project — letting
+`~/code/github.com` suppress would make `github.com/owner/repo` unreachable,
+which is the exact config bug source 3 exists to kill.
+
+**Known limit:** if you visit a *container* more than the projects inside it, and
+it is not configured, the container wins and its projects collapse into it. From
+the outside that is indistinguishable from sofia outranking its own subfolders.
+The fix is to name it in `@cockpit-paths` — its children then arrive configured,
+and nothing can suppress those.
+
+Note it deliberately does **not** filter on `.git`: a folder of coursework or
+scratch work is still a project.
+
+Tune with `@cockpit-zoxide off` (drop source 3 entirely) and
+`@cockpit-zoxide-limit` (how many surviving entries to take, default 200).
 
 ## How it works
 

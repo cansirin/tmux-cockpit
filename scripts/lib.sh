@@ -68,3 +68,68 @@ cockpit_resolve_name() {
   fi
   printf '%s-%s' "$base" "$(cockpit_name_hash "$path")"
 }
+
+# cockpit_zoxide_keep PATH -> 0 when PATH is worth offering as a project at all.
+# zoxide tracks every directory you have visited, which is not the same set as
+# your projects. Two kinds of entry are never a project:
+#   - $HOME itself, and anything ABOVE it (/, /Users) — you don't open a cockpit
+#     on your home dir, and a stray `cd /` should not earn a permanent slot
+#   - anything with a dot-prefixed component ($HOME/.claude/skills, .config/b8e,
+#     .local/share) — a hidden dir is tooling state, not work
+# Everything else is left alone: a project has no obligation to be a git repo (a
+# plain folder of coursework is still a project), so this deliberately does NOT
+# filter on .git.
+cockpit_zoxide_keep() {
+  local p="${1%/}"
+  [ -z "$p" ] && return 1
+  [ "$p" = "$HOME" ] && return 1
+  case "$HOME/" in "$p"/*) return 1 ;; esac   # p is an ancestor of $HOME
+  case "$p" in */.*) return 1 ;; esac         # a dot-prefixed path component
+  return 0
+}
+
+# cockpit_prune_nested — stdin: "<tag>\t<path>" lines, tag `e` for an explicitly
+# configured candidate (a @cockpit-paths child or a @cockpit-extra dir) and `z`
+# for one zoxide volunteered, with the `e` lines FIRST and the `z` lines in
+# zoxide's own order (highest frecency first). stdout: the survivors, order kept.
+#
+# Collapses a zoxide nest to the ONE directory you work in: having visited eleven
+# folders under ~/Desktop/sofia should offer sofia, not eleven near-identical rows
+# that push the real one off the top.
+#
+# Two rules, and the narrowness of both is the point:
+#
+#   1. Only a `z` path suppresses, and only its own DESCENDANTS. An ancestor is
+#      never dropped for arriving late — ~/Desktop simply stays on the list,
+#      ranked where zoxide ranks it. Dropping ancestors also collapsed nests from
+#      the wrong end: a `~/work` you cd into daily outranks the projects inside
+#      it, and would have eaten every one of them.
+#   2. An `e` path never suppresses and is never dropped. The depth-1 root scan
+#      is a mechanical listing, not a claim that each child is the whole project
+#      — letting `~/code/github.com` suppress would make `github.com/owner/repo`
+#      unreachable, which is the exact config bug the zoxide source exists to
+#      kill.
+#
+# Residual, and it is a real one: if you visit a CONTAINER more than the projects
+# inside it, and that container is not configured, the container wins and its
+# projects collapse into it. The fix is to name it in @cockpit-paths — its
+# children then arrive as `e`, which nothing can suppress.
+#
+# Paths containing a literal tab are not supported (the tag separator).
+cockpit_prune_nested() {
+  awk -F'\t' '
+    function norm(p) { sub(/\/+$/, "", p); return p }      # a trailing slash must not defeat inside()
+    function inside(a, b) { return index(a, b "/") == 1 }   # a is strictly under b
+    {
+      tag = $1; p = norm($2)
+      if (p == "") next                                     # a tab-less line would poison every compare
+      if (p in seen) next                                   # same path, both sources
+      if (tag != "e")
+        for (i = 1; i <= n; i++)
+          if (inside(p, keep[i])) next
+      seen[p] = 1
+      if (tag != "e") keep[++n] = p                         # only zoxide entries suppress
+      print p
+    }
+  '
+}
