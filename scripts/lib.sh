@@ -99,16 +99,21 @@ cockpit_zoxide_keep() {
 #
 # Two rules, and the narrowness of both is the point:
 #
-#   1. Only a `z` path suppresses, and only its own DESCENDANTS. An ancestor is
-#      never dropped for arriving late — ~/Desktop simply stays on the list,
-#      ranked where zoxide ranks it. Dropping ancestors also collapsed nests from
-#      the wrong end: a `~/work` you cd into daily outranks the projects inside
-#      it, and would have eaten every one of them.
-#   2. An `e` path never suppresses and is never dropped. The depth-1 root scan
-#      is a mechanical listing, not a claim that each child is the whole project
-#      — letting `~/code/github.com` suppress would make `github.com/owner/repo`
-#      unreachable, which is the exact config bug the zoxide source exists to
-#      kill.
+#   1. A path suppresses only its own DESCENDANTS, never an ancestor. An
+#      ancestor that arrives late simply stays on the list, ranked where zoxide
+#      ranks it. Dropping ancestors collapsed nests from the wrong end: a
+#      `~/work` you cd into daily outranks the projects inside it, and would have
+#      eaten every one of them.
+#   2. An `e` path is never DROPPED, but it does suppress: naming a dir (or its
+#      parent root) says it is a project, so the folders you have opened inside
+#      it are the same project, not more of them.
+#
+#      The cost is a namespace layout — `~/code/github.com/owner/repo` under a
+#      `~/code` root, where the root child `github.com` is a container rather
+#      than a project, and suppressing hides the repo. The answer is a glob root:
+#      @cockpit-paths "$HOME/code/github.com/*" makes each owner a root, so the
+#      repos arrive as `e` themselves. Globs in @cockpit-paths already expand,
+#      so this needs no new option.
 #
 # Residual, and it is a real one: if you visit a CONTAINER more than the projects
 # inside it, and that container is not configured, the container wins and its
@@ -128,8 +133,23 @@ cockpit_prune_nested() {
         for (i = 1; i <= n; i++)
           if (inside(p, keep[i])) next
       seen[p] = 1
-      if (tag != "e") keep[++n] = p                         # only zoxide entries suppress
+      keep[++n] = p
       print p
     }
   '
+}
+
+# cockpit_dir_id PATH -> "<device>:<inode>", the filesystem's own identity for
+# PATH, or empty when it cannot be read. Two paths with the same id ARE the same
+# directory, which string comparison cannot tell you: on a case-insensitive
+# filesystem ~/desktop and ~/Desktop are one directory wearing two names, and
+# zoxide happily records both. -L follows symlinks, so a root reached through a
+# link reads as the root it points at rather than as the link's own inode.
+#
+# GNU's -c is tried FIRST because it is the unambiguous one: BSD stat has no -c
+# and exits non-zero, so the fallback is clean. The reverse order is not safe —
+# GNU's -f means "file system status", not "format", so `stat -f '%d:%i'` there
+# reads the format string as a filename and half-succeeds instead of failing over.
+cockpit_dir_id() {
+  stat -L -c '%d:%i' "$1" 2>/dev/null || stat -L -f '%d:%i' "$1" 2>/dev/null
 }
