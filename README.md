@@ -135,19 +135,35 @@ window scope.
 
 ## What the picker lists
 
-Three sources, unioned and deduped:
+Three sources, unioned:
 
 1. **every child of `@cockpit-paths`** — a depth-1 scan, so roots are *containers
    of projects*, not projects themselves
-2. **`@cockpit-extra`** — literal dirs, verbatim. The explicit escape hatch for a
-   project that lives nowhere near a root
+2. **`@cockpit-extra`** — literal dirs, verbatim
 3. **zoxide's frecency list**, when `zoxide` is installed — anything you've `cd`'d
-   into is pickable with **zero config**. Stale entries are filtered and the list
-   is capped (`@cockpit-zoxide-limit`, default 200) so one long history can't
-   drown the curated roots. `@cockpit-zoxide off` opts out.
+   into is pickable with **zero config**. Visit a folder once and it's there.
 
-Source 3 is why "why isn't my project in the picker?" stops being a config bug —
-visit a folder once and it's there.
+Sources 1 and 2 are what you *configured*, so they're offered as-is. Source 3 is
+what you *visited*, which is a noisier set, so it gets filtered:
+
+- **stale entries** are dropped (zoxide's db outlives the directories in it)
+- **hidden dirs and `$HOME` upward** are dropped — `~/.config/foo`, `~/.local/bin`,
+  `~/`, `/Users` are places you passed through, not projects
+- **a nest collapses to one row.** Having visited eleven folders under
+  `~/Desktop/sofia` should offer *sofia*, not eleven near-identical rows that push
+  the real one off the top — and not `~/Desktop` either.
+
+That last one is decided by **frecency, not depth**: `~/Desktop/sofia` scores 58.9
+against `~/Desktop`'s 1.3, so sofia wins and `~/Desktop` drops out as its
+ancestor. Picking the shallower path would get this exactly backwards. A
+configured dir is never collapsed away — you asked for it, so you get it, even
+nested under another (a monorepo's `services/` under the monorepo root).
+
+Note it deliberately does **not** filter on `.git`: a folder of coursework or
+scratch work is still a project.
+
+Tune with `@cockpit-zoxide off` (drop source 3 entirely) and
+`@cockpit-zoxide-limit` (how many entries to take, default 200).
 
 ## How it works
 

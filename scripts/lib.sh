@@ -68,3 +68,59 @@ cockpit_resolve_name() {
   fi
   printf '%s-%s' "$base" "$(cockpit_name_hash "$path")"
 }
+
+# cockpit_zoxide_keep PATH -> 0 when PATH is worth offering as a project at all.
+# zoxide tracks every directory you have visited, which is not the same set as
+# your projects. Two kinds of entry are never a project:
+#   - $HOME itself, and anything ABOVE it (/, /Users) — you don't open a cockpit
+#     on your home dir, and a stray `cd /` should not earn a permanent slot
+#   - anything with a dot-prefixed component ($HOME/.claude/skills, .config/b8e,
+#     .local/share) — a hidden dir is tooling state, not work
+# Everything else is left alone: a project has no obligation to be a git repo (a
+# plain folder of coursework is still a project), so this deliberately does NOT
+# filter on .git.
+cockpit_zoxide_keep() {
+  local p="${1%/}"
+  [ -z "$p" ] && return 1
+  [ "$p" = "$HOME" ] && return 1
+  case "$HOME/" in "$p"/*) return 1 ;; esac   # p is an ancestor of $HOME
+  case "$p" in */.*) return 1 ;; esac         # a dot-prefixed path component
+  return 0
+}
+
+# cockpit_prune_nested — stdin: "<tag>\t<path>" lines, tag `e` for an explicitly
+# configured candidate (a @cockpit-paths child or a @cockpit-extra dir) and `z`
+# for one zoxide volunteered, with the `e` lines FIRST and the `z` lines in
+# zoxide's own order (highest frecency first). stdout: the survivors, order kept.
+#
+# Collapses a nest to the ONE directory you actually work in. Visiting eleven
+# folders under ~/Desktop/sofia should offer sofia, not eleven near-identical
+# rows that push the real one off the top — and not ~/Desktop either, which is
+# furniture you walked through, not a project.
+#
+# A `z` path is dropped when it is nested under an already-kept path OR is an
+# ancestor of one. Input order is what decides which member of a nest wins, and
+# frecency order means it is the one with the highest score: ~/Desktop/sofia
+# (58.9) is seen before ~/Desktop (1.3), so sofia is kept and ~/Desktop is then
+# dropped as its ancestor. Depth would have gotten this exactly backwards.
+#
+# An `e` path is NEVER dropped and always suppresses: you configured it, so you
+# get it even when it nests (a monorepo's services dir under the monorepo root
+# is the motivating case), and a zoxide entry can't shadow it.
+# Paths containing a literal tab are not supported (the tag separator).
+cockpit_prune_nested() {
+  awk -F'\t' '
+    function inside(a, b) { return index(a, b "/") == 1 }   # a is under b
+    {
+      tag = $1; p = $2
+      if (p in seen) next                                   # same path, both sources
+      if (tag != "e") {
+        for (i = 1; i <= n; i++)
+          if (inside(p, keep[i]) || inside(keep[i], p)) next
+      }
+      seen[p] = 1
+      keep[++n] = p
+      print p
+    }
+  '
+}

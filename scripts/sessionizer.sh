@@ -21,12 +21,17 @@ else
   #      actually cd'd into is pickable with no config at all. This is what stops
   #      "why isn't my project in the list?" from being a config bug: a project
   #      outside every root becomes findable the moment you visit it once.
-  # zoxide entries are filtered to still-existing dirs (its db keeps stale paths)
-  # and capped, so one huge history can't drown the curated roots. Set
-  # @cockpit-zoxide off to opt out; @cockpit-zoxide-limit tunes the cap.
+  # Sources 1 and 2 are what you CONFIGURED, so they are offered as-is. Source 3
+  # is what you VISITED, which is a noisier set — zoxide entries are additionally
+  # filtered to still-existing dirs (its db keeps stale paths), to plausible
+  # projects (cockpit_zoxide_keep), and to the outermost of a nest
+  # (cockpit_prune_nested), then capped so one huge history can't drown the
+  # curated roots. Set @cockpit-zoxide off to opt out; @cockpit-zoxide-limit
+  # tunes the cap. Each line is tagged e/z for the nesting prune, which never
+  # drops something you configured.
   selected="$( {
-      find "${roots[@]}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null
-      [[ ${#extra_dirs[@]} -gt 0 ]] && printf '%s\n' "${extra_dirs[@]}"
+      find "${roots[@]}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed 's/^/e\t/'
+      [[ ${#extra_dirs[@]} -gt 0 ]] && printf 'e\t%s\n' "${extra_dirs[@]}"
       if [[ "$(cockpit_opt @cockpit-zoxide on)" != off ]] && command -v zoxide >/dev/null 2>&1; then
         # A non-numeric limit would make `head` fail and print its usage error
         # INTO the picker (this whole block is a command substitution feeding
@@ -36,9 +41,11 @@ else
         [[ "$limit" =~ ^[0-9]+$ ]] || limit=200
         zoxide query -l 2>/dev/null \
           | head -n "$limit" \
-          | while IFS= read -r d; do [[ -d "$d" ]] && printf '%s\n' "$d"; done
+          | while IFS= read -r d; do
+              [[ -d "$d" ]] && cockpit_zoxide_keep "$d" && printf 'z\t%s\n' "$d"
+            done
       fi
-    } | sort -u | fzf --prompt='project ❯ ' --height=50% --reverse )"
+    } | cockpit_prune_nested | fzf --prompt='project ❯ ' --height=50% --reverse )"
 fi
 [[ -z "$selected" ]] && exit 0
 

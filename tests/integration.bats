@@ -183,3 +183,51 @@ teardown() {
   [[ "$output" != *"illegal"* ]]      # and head's usage error never lands in the list
   [[ "$output" != *"usage"* ]]
 }
+
+@test "picker offers the project, not the folder it sits in nor its subfolders" {
+  # end-to-end shape of the sofia case: the container and the subfolders are all
+  # in zoxide, and only the project itself should reach the picker.
+  root="$BATS_TEST_TMPDIR/roots"; mkdir -p "$root/inroot"
+  proj="$BATS_TEST_TMPDIR/desk/sofia - master"
+  mkdir -p "$proj/machine-learning/assignments" "$proj/security"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  # zoxide's own order: the project outranks the container it lives in
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s" "%s" "%s" "%s"\n' \
+    "$proj" "$proj/machine-learning/assignments" "$proj/security" \
+    "$BATS_TEST_TMPDIR/desk" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" == *"$proj"* ]]                      # the project is offered
+  [[ "$output" != *"$proj/machine-learning"* ]]     # its subfolders are not
+  [[ "$output" != *"$proj/security"* ]]
+  [[ "$output" == *"$root/inroot"* ]]               # configured roots unaffected
+  # the container the project sits in is dropped as its ancestor
+  [ "$(printf '%s\n' "$output" | grep -cx "$BATS_TEST_TMPDIR/desk")" -eq 0 ]
+}
+
+@test "picker drops hidden dirs and anything at or above \$HOME" {
+  root="$BATS_TEST_TMPDIR/roots"; mkdir -p "$root/inroot"
+  mkdir -p "$HOME/.cockpit-test-hidden"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s" "%s" "/"\n' \
+    "$HOME/.cockpit-test-hidden" "$HOME" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+  rmdir "$HOME/.cockpit-test-hidden"
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [[ "$output" != *".cockpit-test-hidden"* ]]
+  [ "$(printf '%s\n' "$output" | grep -cx "$HOME")" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | grep -cx "/")" -eq 0 ]
+  [[ "$output" == *"$root/inroot"* ]]
+}
