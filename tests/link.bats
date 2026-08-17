@@ -10,14 +10,12 @@ setup() {
   BIN="$BATS_TEST_TMPDIR/bin"
 }
 
-@test "links the wt-* scripts and tmsg, stripping the .sh" {
+@test "links tmsg, stripping the .sh" {
   run bash "$SCRIPTS/link.sh" "$BIN"
   [ "$status" -eq 0 ]
-  [ -L "$BIN/wt-status" ]
-  [ -L "$BIN/wt-prune" ]
   [ -L "$BIN/tmsg" ]
   # the symlink resolves to the absolute source script
-  [ "$(readlink "$BIN/wt-status")" = "$SCRIPTS/wt-status.sh" ]
+  [ "$(readlink "$BIN/tmsg")" = "$SCRIPTS/tmsg.sh" ]
 }
 
 @test "does NOT link lib.sh (not in the convention set)" {
@@ -37,9 +35,9 @@ setup() {
 
 @test "repoints a stale symlink to the correct source" {
   mkdir -p "$BIN"
-  ln -s /somewhere/else/wt-status "$BIN/wt-status"
+  ln -s /somewhere/else/tmsg "$BIN/tmsg"
   bash "$SCRIPTS/link.sh" "$BIN"
-  [ "$(readlink "$BIN/wt-status")" = "$SCRIPTS/wt-status.sh" ]
+  [ "$(readlink "$BIN/tmsg")" = "$SCRIPTS/tmsg.sh" ]
 }
 
 @test "refuses to clobber a real (non-symlink) file" {
