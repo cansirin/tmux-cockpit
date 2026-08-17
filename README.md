@@ -150,23 +150,35 @@ Source 3 is what you *visited*, which is a noisier set, so it gets filtered:
 - **stale entries** are dropped (zoxide's db outlives the directories in it)
 - **hidden dirs and `$HOME` upward** are dropped — `~/.config/foo`, `~/`, `/Users`
   are places you passed through, not projects
-- **a configured root** is never offered as a project. You named it as the place
-  projects live *in*, so it is a container by your own declaration
+- **a configured root**, and anything *above* one, is never offered as a project.
+  You named it as the place projects live *in*, so it and its parents are
+  containers by your own declaration. Roots are matched by filesystem identity,
+  so a case-insensitive `~/desktop` and a symlinked alias are caught too
 - **a nest collapses to one row.** Having visited eleven folders under
   `~/Desktop/sofia` should offer *sofia*, not eleven near-identical rows that push
   the real one off the top
 
-Two things that collapse deliberately narrowly:
+How the collapse decides:
 
-A zoxide entry only suppresses its own **descendants**, never an ancestor. So
-`~/Desktop` stays on the list, ranked where zoxide ranks it — dropping ancestors
-also collapsed nests from the wrong end, letting a `~/work` you visit daily eat
-every project inside it.
+A path suppresses only its own **descendants**, never an ancestor. `~/Desktop`
+stays on the list ranked where zoxide ranks it — dropping ancestors collapsed
+nests from the wrong end, letting a `~/work` you visit daily eat every project
+inside it.
 
-A configured path never suppresses anything. The depth-1 root scan is a
-mechanical listing, not a claim that each child is the whole project — letting
-`~/code/github.com` suppress would make `github.com/owner/repo` unreachable,
-which is the exact config bug source 3 exists to kill.
+A **configured** path is never dropped, and it does suppress. Naming a dir (or
+its parent root) says it is a project, so the folders you have opened inside it
+are the same project rather than more of them.
+
+**Known cost:** a namespace layout — `~/code/github.com/owner/repo` under a
+`~/code` root — has `github.com` as a root child by mechanical listing, not
+because it is a project, so suppressing hides the repos. The answer is a glob
+root, which `@cockpit-paths` already expands:
+
+```tmux
+set -g @cockpit-paths "$HOME/code/github.com/*"
+```
+
+Each owner becomes a root, so the repos arrive configured themselves.
 
 **Known limit:** if you visit a *container* more than the projects inside it, and
 it is not configured, the container wins and its projects collapse into it. From

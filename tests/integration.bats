@@ -277,6 +277,45 @@ teardown() {
   [[ "$output" == *"$real"* ]]   # the only survivor of the filter, so it fits in 1
 }
 
+@test "an ancestor of a configured root is never offered — it is furniture" {
+  # ~/Documents holding only ~/Documents/development is the shape: naming the
+  # child as a root declares your work lives strictly below, so a row for the
+  # folder it sits in is a row you would never pick
+  parent="$BATS_TEST_TMPDIR/parent"
+  root="$parent/devroot"; mkdir -p "$root/realproj"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s" "%s"\n' "$parent" "$root/realproj" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [ "$(printf '%s\n' "$output" | grep -cx "$parent")" -eq 0 ]
+  [[ "$output" == *"$root/realproj"* ]]
+}
+
+@test "a root reached by a second name (symlink) is still not offered" {
+  # the case-insensitive-filesystem shape, made portable: one directory, two
+  # names. String comparison sees two paths; the filesystem sees one inode.
+  root="$BATS_TEST_TMPDIR/realroot"; mkdir -p "$root/proj"
+  ln -s "$root" "$BATS_TEST_TMPDIR/aliasroot"
+
+  stub="$BATS_TEST_TMPDIR/stub"; mkdir -p "$stub"
+  printf '#!/bin/sh\ncat > "%s/candidates"\n' "$BATS_TEST_TMPDIR" > "$stub/fzf"
+  printf '#!/bin/sh\nprintf "%%s\\n" "%s"\n' "$BATS_TEST_TMPDIR/aliasroot" > "$stub/zoxide"
+  chmod +x "$stub/fzf" "$stub/zoxide"
+
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-paths "$root"
+  PATH="$stub:$PATH" TMUX="fake" bash "$SCRIPTS/sessionizer.sh" 2>/dev/null || true
+
+  run cat "$BATS_TEST_TMPDIR/candidates"
+  [ "$(printf '%s\n' "$output" | grep -cx "$BATS_TEST_TMPDIR/aliasroot")" -eq 0 ]
+  [[ "$output" == *"$root/proj"* ]]
+}
+
 @test "a configured root is never offered as a project, however often it is visited" {
   # you named it as the place projects live IN, so it is a container by your own
   # declaration — its children are the projects, it is not one

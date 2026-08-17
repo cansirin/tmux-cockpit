@@ -13,14 +13,37 @@ else
   eval "roots=($paths)"        # expand ~ and globs
   eval "extra_dirs=($extra)"   # literal dirs to include verbatim
 
-  # A configured root is a container BY YOUR OWN DECLARATION — you named it as
-  # the place projects live in, so it is never itself a project no matter how
-  # often you have walked through it. Defined out here rather than inside the
-  # candidate pipeline below: a function body inside a $( ) is easy to break, and
-  # an apostrophe in a comment in there is a parse error, not a typo.
-  is_root() {
-    local d="${1%/}" r
-    for r in "${roots[@]}"; do [[ "${r%/}" == "$d" ]] && return 0; done
+  # Containers are declared, not guessed. Naming a dir in @cockpit-paths says
+  # "projects live IN here", which makes it furniture — and so is anything ABOVE
+  # it, since the same declaration puts your work strictly below. ~/Documents
+  # holding only ~/Documents/development is the shape: you want the projects, and
+  # a row for the folder they sit in is a row you will never pick.
+  #
+  # Roots are matched by filesystem identity, not by string, because a
+  # case-insensitive filesystem gives one directory two names and zoxide records
+  # both — ~/desktop and ~/Desktop are the same inode, and only one of them looks
+  # like the root you configured.
+  #
+  # Defined out here rather than inside the candidate pipeline below: a function
+  # body inside a $( ) is easy to break, and an apostrophe in a comment in there
+  # is a parse error, not a typo.
+  root_ids=()
+  for _r in "${roots[@]}"; do
+    _id="$(cockpit_dir_id "${_r%/}")"
+    [[ -n "$_id" ]] && root_ids+=("$_id")
+  done
+  is_container() {
+    local d="${1%/}" r id
+    for r in "${roots[@]}"; do
+      r="${r%/}"
+      [[ "$r" == "$d" ]] && return 0        # the root itself
+      [[ "$r" == "$d"/* ]] && return 0      # an ancestor of a root
+    done
+    id="$(cockpit_dir_id "$d")"
+    [[ -z "$id" ]] && return 1
+    for r in "${root_ids[@]}"; do
+      [[ "$r" == "$id" ]] && return 0       # the root under another name
+    done
     return 1
   }
 
@@ -64,7 +87,7 @@ else
         # never render, and the 201st real project would go unseen.
         zoxide query -l 2>/dev/null \
           | while IFS= read -r d; do
-              [[ -d "$d" ]] && ! is_root "$d" && cockpit_zoxide_keep "$d" \
+              [[ -d "$d" ]] && ! is_container "$d" && cockpit_zoxide_keep "$d" \
                 && printf 'z\t%s\n' "$d"
             done \
           | head -n "$limit"

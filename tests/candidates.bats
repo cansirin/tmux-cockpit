@@ -70,12 +70,28 @@ tagged() { printf '%b\n' "$@"; }
   [ "$(printf '%s\n' "$result" | wc -l | tr -d ' ')" -eq 2 ]
 }
 
-@test "prune: a configured root child does NOT suppress a project beneath it" {
-  # regression: `find` lists ~/code/github.com as a root child, which is a
-  # mechanical listing and not a claim that github.com is the project. If it
-  # suppressed, github.com/owner/repo (a ghq layout) would be unreachable —
-  # exactly the config bug the zoxide source exists to kill.
+@test "prune: a configured path collapses the folders you opened inside it" {
+  # naming ~/Desktop as a root makes sofia a configured project, so the course
+  # folders you have cd'd into are the same project, not six more of them
+  run tagged 'e\t/home/u/Desktop/sofia' 'z\t/home/u/Desktop/sofia/ml' 'z\t/home/u/Desktop/sofia/security'
+  result="$(printf '%s\n' "$output" | cockpit_prune_nested)"
+  [ "$result" = "/home/u/Desktop/sofia" ]
+}
+
+@test "prune: KNOWN COST — a namespace root child hides the repos under it" {
+  # ~/code/github.com is a root child by mechanical listing, not because it is a
+  # project, so suppressing hides owner/repo. Asserted so the cost is known; the
+  # documented answer is a glob root (@cockpit-paths ".../github.com/*"), which
+  # makes the repos arrive configured themselves — see the test below.
   run tagged 'e\t/home/u/code/github.com' 'z\t/home/u/code/github.com/owner/repo'
+  result="$(printf '%s\n' "$output" | cockpit_prune_nested)"
+  [ "$result" = "/home/u/code/github.com" ]
+}
+
+@test "prune: a glob root recovers the namespace case — configured wins" {
+  # what @cockpit-paths "$HOME/code/github.com/*" produces: each owner is a root,
+  # so its repos are `e` children and nothing suppresses them
+  run tagged 'e\t/home/u/code/github.com/owner/repo' 'z\t/home/u/code/github.com'
   result="$(printf '%s\n' "$output" | cockpit_prune_nested)"
   [[ "$result" == *"/home/u/code/github.com/owner/repo"* ]]
 }
