@@ -93,33 +93,42 @@ cockpit_zoxide_keep() {
 # for one zoxide volunteered, with the `e` lines FIRST and the `z` lines in
 # zoxide's own order (highest frecency first). stdout: the survivors, order kept.
 #
-# Collapses a nest to the ONE directory you actually work in. Visiting eleven
-# folders under ~/Desktop/sofia should offer sofia, not eleven near-identical
-# rows that push the real one off the top — and not ~/Desktop either, which is
-# furniture you walked through, not a project.
+# Collapses a zoxide nest to the ONE directory you work in: having visited eleven
+# folders under ~/Desktop/sofia should offer sofia, not eleven near-identical rows
+# that push the real one off the top.
 #
-# A `z` path is dropped when it is nested under an already-kept path OR is an
-# ancestor of one. Input order is what decides which member of a nest wins, and
-# frecency order means it is the one with the highest score: ~/Desktop/sofia
-# (58.9) is seen before ~/Desktop (1.3), so sofia is kept and ~/Desktop is then
-# dropped as its ancestor. Depth would have gotten this exactly backwards.
+# Two rules, and the narrowness of both is the point:
 #
-# An `e` path is NEVER dropped and always suppresses: you configured it, so you
-# get it even when it nests (a monorepo's services dir under the monorepo root
-# is the motivating case), and a zoxide entry can't shadow it.
+#   1. Only a `z` path suppresses, and only its own DESCENDANTS. An ancestor is
+#      never dropped for arriving late — ~/Desktop simply stays on the list,
+#      ranked where zoxide ranks it. Dropping ancestors also collapsed nests from
+#      the wrong end: a `~/work` you cd into daily outranks the projects inside
+#      it, and would have eaten every one of them.
+#   2. An `e` path never suppresses and is never dropped. The depth-1 root scan
+#      is a mechanical listing, not a claim that each child is the whole project
+#      — letting `~/code/github.com` suppress would make `github.com/owner/repo`
+#      unreachable, which is the exact config bug the zoxide source exists to
+#      kill.
+#
+# Residual, and it is a real one: if you visit a CONTAINER more than the projects
+# inside it, and that container is not configured, the container wins and its
+# projects collapse into it. The fix is to name it in @cockpit-paths — its
+# children then arrive as `e`, which nothing can suppress.
+#
 # Paths containing a literal tab are not supported (the tag separator).
 cockpit_prune_nested() {
   awk -F'\t' '
-    function inside(a, b) { return index(a, b "/") == 1 }   # a is under b
+    function norm(p) { sub(/\/+$/, "", p); return p }      # a trailing slash must not defeat inside()
+    function inside(a, b) { return index(a, b "/") == 1 }   # a is strictly under b
     {
-      tag = $1; p = $2
+      tag = $1; p = norm($2)
+      if (p == "") next                                     # a tab-less line would poison every compare
       if (p in seen) next                                   # same path, both sources
-      if (tag != "e") {
+      if (tag != "e")
         for (i = 1; i <= n; i++)
-          if (inside(p, keep[i]) || inside(keep[i], p)) next
-      }
+          if (inside(p, keep[i])) next
       seen[p] = 1
-      keep[++n] = p
+      if (tag != "e") keep[++n] = p                         # only zoxide entries suppress
       print p
     }
   '

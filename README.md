@@ -143,27 +143,42 @@ Three sources, unioned:
 3. **zoxide's frecency list**, when `zoxide` is installed — anything you've `cd`'d
    into is pickable with **zero config**. Visit a folder once and it's there.
 
-Sources 1 and 2 are what you *configured*, so they're offered as-is. Source 3 is
-what you *visited*, which is a noisier set, so it gets filtered:
+Sources 1 and 2 are what you *configured*, so they are offered as-is (minus
+dot-dirs — a root scan otherwise turns up `.claude` and `.github` as projects).
+Source 3 is what you *visited*, which is a noisier set, so it gets filtered:
 
 - **stale entries** are dropped (zoxide's db outlives the directories in it)
-- **hidden dirs and `$HOME` upward** are dropped — `~/.config/foo`, `~/.local/bin`,
-  `~/`, `/Users` are places you passed through, not projects
+- **hidden dirs and `$HOME` upward** are dropped — `~/.config/foo`, `~/`, `/Users`
+  are places you passed through, not projects
+- **a configured root** is never offered as a project. You named it as the place
+  projects live *in*, so it is a container by your own declaration
 - **a nest collapses to one row.** Having visited eleven folders under
   `~/Desktop/sofia` should offer *sofia*, not eleven near-identical rows that push
-  the real one off the top — and not `~/Desktop` either.
+  the real one off the top
 
-That last one is decided by **frecency, not depth**: `~/Desktop/sofia` scores 58.9
-against `~/Desktop`'s 1.3, so sofia wins and `~/Desktop` drops out as its
-ancestor. Picking the shallower path would get this exactly backwards. A
-configured dir is never collapsed away — you asked for it, so you get it, even
-nested under another (a monorepo's `services/` under the monorepo root).
+Two things that collapse deliberately narrowly:
+
+A zoxide entry only suppresses its own **descendants**, never an ancestor. So
+`~/Desktop` stays on the list, ranked where zoxide ranks it — dropping ancestors
+also collapsed nests from the wrong end, letting a `~/work` you visit daily eat
+every project inside it.
+
+A configured path never suppresses anything. The depth-1 root scan is a
+mechanical listing, not a claim that each child is the whole project — letting
+`~/code/github.com` suppress would make `github.com/owner/repo` unreachable,
+which is the exact config bug source 3 exists to kill.
+
+**Known limit:** if you visit a *container* more than the projects inside it, and
+it is not configured, the container wins and its projects collapse into it. From
+the outside that is indistinguishable from sofia outranking its own subfolders.
+The fix is to name it in `@cockpit-paths` — its children then arrive configured,
+and nothing can suppress those.
 
 Note it deliberately does **not** filter on `.git`: a folder of coursework or
 scratch work is still a project.
 
 Tune with `@cockpit-zoxide off` (drop source 3 entirely) and
-`@cockpit-zoxide-limit` (how many entries to take, default 200).
+`@cockpit-zoxide-limit` (how many surviving entries to take, default 200).
 
 ## How it works
 
