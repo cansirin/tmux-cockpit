@@ -144,8 +144,12 @@ cockpit_prune_nested() {
 # directory, which string comparison cannot tell you: on a case-insensitive
 # filesystem ~/desktop and ~/Desktop are one directory wearing two names, and
 # zoxide happily records both. -L follows symlinks, so a root reached through a
-# link reads as the root it points at rather than as the link's own inode. BSD
-# stat first, GNU second.
+# link reads as the root it points at rather than as the link's own inode.
+#
+# GNU's -c is tried FIRST because it is the unambiguous one: BSD stat has no -c
+# and exits non-zero, so the fallback is clean. The reverse order is not safe —
+# GNU's -f means "file system status", not "format", so `stat -f '%d:%i'` there
+# reads the format string as a filename and half-succeeds instead of failing over.
 cockpit_dir_id() {
-  stat -L -f '%d:%i' "$1" 2>/dev/null || stat -L -c '%d:%i' "$1" 2>/dev/null
+  stat -L -c '%d:%i' "$1" 2>/dev/null || stat -L -f '%d:%i' "$1" 2>/dev/null
 }
