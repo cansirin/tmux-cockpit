@@ -16,9 +16,6 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | `Ctrl-f` (no prefix) | floating fuzzy **project picker** — create-or-jump to any project's session, works even inside vim/claude |
 | `prefix + f` | same picker |
 | `prefix + Space` | **menu of everything** (split, zoom, jump, detach, all-keys) — recall, not memorize |
-| `prefix + Space` → `w` | **worktree status** — which worktrees are merged (safe to prune) vs still unmerged |
-| `prefix + Space` → `W` | **new worktree** — type a branch, get a worktree in a sibling dir |
-| `prefix + Space` → `p` | **prune worktrees** — preview the merged ones (dry-run; `wt-prune --force` to act) |
 | `prefix + Space` → `e` | **edit reminders** — pop open the reminders file in `$EDITOR` |
 | `prefix + Space` → `a` | **add reminder** — type a line, it's appended to the reminders file (quick capture) |
 | status bar | a **labelled legend** — `[S]` sessions · `[G]` git context · centred window list · `[R]` reminders (its own row), each a colored section tag |
@@ -44,17 +41,16 @@ run '~/.tmux/plugins/tpm/tpm'   # keep this last
 
 Then press `prefix + I` to fetch it. Requires `tmux >= 3.2`, `fzf`.
 
-**Optional — put the CLIs on your `PATH`.** The menu works without this, but the
-command-line tools (`tmsg`, `wt-new`, `wt-prune`, `wt-status`, …) are handy to
-type. From the plugin dir:
+**Optional — put the `tmsg` CLI on your `PATH`.** The menu works without this,
+but `tmsg` is handy to type. From the plugin dir:
 
 ```bash
-make install          # symlinks scripts/{tmsg,wt-*}.sh into ~/.local/bin
+make install          # symlinks scripts/tmsg.sh into ~/.local/bin
 make install BIN=~/bin # or a dir of your choice
 ```
 
-It's idempotent and won't clobber a real file; new `wt-*` scripts are picked up
-automatically on the next run.
+It's idempotent, won't clobber a real file, and prunes links to scripts the
+plugin no longer ships.
 
 ## Configure (optional)
 
@@ -159,8 +155,7 @@ visit a folder once and it's there.
 - `scripts/session-list.sh` — renders the status-bar session list
 - `scripts/layout-default.sh` — the default cockpit layout
 - `scripts/tmsg.sh` — `tmsg <target> <msg>`: send a line to another window/pane in one call (e.g. `myrepo:build`; the `send-keys -l … ; send-keys Enter` two-step, wrapped)
-- `scripts/wt-status.sh` / `wt-new.sh` / `wt-prune.sh` — worktree lifecycle: classify / create / prune-merged (dry-run by default)
-- `scripts/link.sh` — `make install`: symlink the `tmsg`/`wt-*` CLIs onto `PATH`
+- `scripts/link.sh` — `make install`: symlink the `tmsg` CLI onto `PATH`
 - `cockpit.tmux` — wires the keybindings and status bar (TPM runs this)
 
 MIT.
