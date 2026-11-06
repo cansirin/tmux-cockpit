@@ -24,8 +24,9 @@ _mkrepo() {
   git -C "$1" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 }
 
-@test "session-list defaults to the named 'blue' slot, not a fixed colour<N>" {
-  run bash "$SCRIPTS/session-list.sh"
+@test "the sessions segment defaults to the named 'blue' slot, not a fixed colour<N>" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" display-message -p -t base '#{E:@cockpit-segment-sessions}'
   [ "$status" -eq 0 ]
   [[ "$output" == *"fg=blue"* ]]
   [[ ! "$output" =~ colour[0-9] ]]
@@ -200,6 +201,7 @@ _mkrepo() {
 
 @test "the accents are still pinnable to a fixed colour" {
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-sessions colour111
-  run bash "$SCRIPTS/session-list.sh"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" display-message -p -t base '#{E:@cockpit-segment-sessions}'
   [[ "$output" == *"fg=colour111"* ]]
 }

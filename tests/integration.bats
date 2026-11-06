@@ -16,19 +16,47 @@ teardown() {
   tmux -L "$COCKPIT_SOCKET" kill-server 2>/dev/null || true
 }
 
-@test "session-list renders every session, styled" {
+@test "the sessions segment renders every session, styled" {
   tmux -L "$COCKPIT_SOCKET" new-session -d -s alpha
-  run bash "$SCRIPTS/session-list.sh"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" display-message -p -t base '#{E:@cockpit-segment-sessions}'
   [ "$status" -eq 0 ]
   [[ "$output" == *base* ]]
   [[ "$output" == *alpha* ]]
   [[ "$output" == *"#["* ]]   # rendered with tmux style tags (the [S] accent)
 }
 
-@test "session-list honors @cockpit-color-sessions" {
+@test "the sessions segment honors @cockpit-color-sessions" {
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-color-sessions colour99
-  run bash "$SCRIPTS/session-list.sh"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" display-message -p -t base '#{E:@cockpit-segment-sessions}'
   [[ "$output" == *"fg=colour99"* ]]   # the configured accent, not the default
+}
+
+@test "each session name is its own click target, the [S] chip opens the picker" {
+  tmux -L "$COCKPIT_SOCKET" new-session -d -s alpha
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" display-message -p -t base '#{E:@cockpit-segment-sessions}'
+  [ "$(grep -o 'range=session|\$[0-9]*' <<<"$output" | sort -u | wc -l)" -eq 2 ]   # one per session
+  [[ "$output" == "#[range=left]"*" S "* ]]   # the chip routes to StatusLeft
+}
+
+@test "the -list sessions segment opens a list and never crashes tmux without a client" {
+  tmux -L "$COCKPIT_SOCKET" new-session -d -s alpha
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" display-message -p -t base '#{E:@cockpit-segment-sessions-list}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"list=left-marker"*base*alpha*"#[nolist]" ]]
+  run tmux -L "$COCKPIT_SOCKET" has-session -t base   # the server survived the expansion
+  [ "$status" -eq 0 ]
+  run tmux -L "$COCKPIT_SOCKET" display-message -p -t base '#{E:@cockpit-segment-sessions}'
+  [[ "$output" != *"list="* ]]   # the plain segment never opens a list
+}
+
+@test "the -list sessions segment focuses the client's own session" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv @cockpit-segment-sessions-list
+  [[ "$output" == *'#{?#{==:#{session_name},#{client_session}},'*"list=focus"* ]]
 }
 
 @test "default layout builds a 4-pane cockpit" {
@@ -63,6 +91,8 @@ teardown() {
 @test "status-left wires in the [G] git context" {
   COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
   run tmux -L "$COCKPIT_SOCKET" show-option -gv status-left
+  [[ "$output" == *"#{E:@cockpit-segment-git}"* ]]
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv @cockpit-segment-git
   [[ "$output" == *"git-context.sh"* ]]
 }
 
