@@ -51,13 +51,11 @@ _mkrepo() {
 
 @test "the [S] and [R] tag chips use reverse video, with no fixed ink colour" {
   COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
-  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-left
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv @cockpit-segment-sessions
   [[ "$output" == *"fg=blue,reverse,bold"* ]]
   [[ ! "$output" =~ colour[0-9] ]]
 
-  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders "ship it"
-  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
-  run tmux -L "$COCKPIT_SOCKET" show-option -gv 'status-format[1]'
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv @cockpit-segment-reminders
   [[ "$output" == *"fg=green,reverse,bold"* ]]
   [[ ! "$output" =~ colour[0-9] ]]
 }

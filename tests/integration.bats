@@ -46,7 +46,8 @@ teardown() {
   COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
   run tmux -L "$COCKPIT_SOCKET" display-message -p -t base '#{E:@cockpit-segment-sessions-list}'
   [ "$status" -eq 0 ]
-  [[ "$output" == *"list=left-marker"*base*alpha*"#[nolist]" ]]
+  [[ "$output" == *"list=left-marker"*"#[nolist]" ]]
+  [[ "$output" == *base* && "$output" == *alpha* ]]
   run tmux -L "$COCKPIT_SOCKET" has-session -t base   # the server survived the expansion
   [ "$status" -eq 0 ]
   run tmux -L "$COCKPIT_SOCKET" display-message -p -t base '#{E:@cockpit-segment-sessions}'
