@@ -23,6 +23,15 @@
 #   @cockpit-reminders-file  file of reminders, one per line (skip #/blank, ~ expands);
 #                       shows them on the [R] row. Edit via prefix+Space → e.
 #   @cockpit-reminders  inline reminder(s) shown on the [R] row alongside the file's
+#   Segments cockpit publishes for your own layout (use as #{E:@name}):
+#     @cockpit-segment-sessions  [S] chip + live session list; click a name to
+#                                switch to it, click [S] for the picker
+#     @cockpit-segment-sessions-list  the same, trimmed to fit with < > around
+#                                the current session (for a row with no window list)
+#     @cockpit-segment-git       [G] chip + branch (empty outside a git repo)
+#     @cockpit-segment-reminders [R] chip + reminders
+#   cockpit sets status-left ("[S] [G]") and status-format[1] ("[R]") only while
+#   each is tmux's default or cockpit's own; set one yourself and it stays yours.
 #   @cockpit-color-sessions  [S] accent: tag + session text + active chip (default blue)
 #   @cockpit-color-reminders [R] accent: tag + reminder text              (default green)
 #   @cockpit-color-git  [G] accent: tag + branch text                     (default magenta)
@@ -99,15 +108,72 @@ c_reminders="$(cockpit_opt @cockpit-color-reminders green)"
 # light one, with no second "ink" colour to keep in agreement with the accent.
 s_tag="#[fg=$c_sessions,reverse,bold] S #[default]"
 r_tag="#[fg=$c_reminders,reverse,bold] R #[default]"
-# [S] sessions, then [G] git context for the active pane's repo (git-context.sh
+# [S] sessions and [G] git context for the active pane's repo (git-context.sh
 # self-renders its [G] chip only inside a work tree, so it vanishes elsewhere).
-_tm set -g status-left "$s_tag #($SCRIPTS/session-list.sh)  #($SCRIPTS/git-context.sh '#{pane_current_path}')"
+# Each is published as a segment option, so a config can place it anywhere with
+# #{E:@cockpit-segment-…}; cockpit's own status-left is just the default layout.
+# The session list is tmux's own #{S:…} loop, not a script: each name is its own
+# click target (range=session → tmux's MouseDown1Status `switch-client -t =`
+# jumps straight there), while the [S] chip keeps range=left (→ StatusLeft, the
+# picker). WCAG 1.4.1 (not by hue alone): attached = filled chip + bold, the rest
+# = plain accent text, so chip vs no-chip is structural, not just colour.
+# `reverse` paints the chip's ink in the terminal's own background, so it follows
+# a light/dark theme flip with no second colour to keep in agreement.
+s_name="#{?session_attached,#[fg=$c_sessions#,reverse#,bold] #{session_name} #[default],#[fg=$c_sessions]#{session_name}#[default]}"
+s_item="#[range=session|#{session_id}]$s_name#[norange default]  "
+s_head="#[range=left]$s_tag#[norange default] "
+_tm set -g @cockpit-segment-sessions "$s_head#{S:$s_item}"
+# The -list variant trims to fit, keeping the current session (list=focus) in view
+# with < > where names were cut. A row holds ONE tmux list, and `list=on` outside
+# a list starts one, so only place it on a row with no window list.
+# The focus is picked with a conditional on client_session, NOT tmux's two-branch
+# #{S:item,current} form: on tmux 3.6a that form crashes the server when expanded
+# with no client attached (e.g. `display -p`), taking every session down with it.
+s_focus="#[range=session|#{session_id} list=focus]$s_name#[norange list=on default]  "
+s_pick="#{?#{==:#{session_name},#{client_session}},$s_focus,$s_item}"
+_tm set -g @cockpit-segment-sessions-list "$s_head#[list=on align=left]#[list=left-marker]<#[list=right-marker]>#[list=on]#{S:$s_pick}#[nolist]"
+_tm set -g @cockpit-segment-git "#($SCRIPTS/git-context.sh '#{pane_current_path}')"
 _tm set -g status-left-length 400
 
+# cockpit_own OPTION NEW TMUX_DEFAULT... — write NEW only when OPTION still
+# reads as one of the listed tmux defaults, or as what cockpit itself last wrote
+# (remembered in @cockpit-restyled-OPTION, so a config reload or a re-pinned
+# accent still lands). Any other value is the user's own and is left untouched.
+cockpit_own() {
+  local opt="$1" new="$2" cur mine d
+  shift 2
+  cur="$(_tm show-option -gqv "$opt" 2>/dev/null)"
+  # an array index (status-format[1]) can't sit in a user option's name
+  local marker="@cockpit-restyled-${opt//[\[\]]/_}"
+  mine="$(_tm show-option -gqv "$marker" 2>/dev/null)"
+  for d in "$@" ${mine:+"$mine"}; do
+    [ "$cur" = "$d" ] || continue
+    _tm set -g "$opt" "$new"
+    _tm set -g "$marker" "$new"
+    return 0
+  done
+}
+
+# The default main-row layout: [S] then [G] on the left. A status-left of your
+# own (e.g. sessions left, git moved into status-right) is left alone. The second
+# default is the literal cockpit wrote before segments existed (session-list.sh
+# is gone, but an old config still holds the string), so an upgrade
+# still moves onto the segment form.
+cockpit_own status-left "#{E:@cockpit-segment-sessions}  #{E:@cockpit-segment-git}" \
+  '[#{session_name}] ' \
+  "$s_tag #($SCRIPTS/session-list.sh)  #($SCRIPTS/git-context.sh '#{pane_current_path}')"
+
 # reminders row (row 1) — only when configured; the [R] tag makes it self-evident
+# [R] is published as a segment too, and row 1 is cockpit's only while it still
+# holds tmux's built-in default (read from a throwaway server, so it is right for
+# whichever tmux runs this), cockpit's own value, or the pre-segment literal.
+_tm set -g @cockpit-segment-reminders "$r_tag #($SCRIPTS/topbar.sh)"
 if [ -n "$(_tm show-option -gqv @cockpit-reminders-file 2>/dev/null)$(_tm show-option -gqv @cockpit-reminders 2>/dev/null)" ]; then
   _tm set -g status 2
-  _tm set -g status-format[1] "#[align=left]$r_tag #($SCRIPTS/topbar.sh)"
+  tmux_row1="$(tmux -L "cockpit-defaults-$$" -f /dev/null start-server \; show-option -gv 'status-format[1]' \; kill-server 2>/dev/null)"
+  cockpit_own 'status-format[1]' "#[align=left]#{E:@cockpit-segment-reminders}" \
+    "$tmux_row1" \
+    "#[align=left]$r_tag #($SCRIPTS/topbar.sh)"
 else
   _tm set -g status on
 fi
@@ -125,22 +191,11 @@ fi
 # `@cockpit-fix-tmux-defaults off` opts out of the whole section.
 fix_defaults="$(cockpit_opt @cockpit-fix-tmux-defaults on)"
 
-# cockpit_restyle OPTION NEW TMUX_DEFAULT... — write NEW only when OPTION still
-# reads as one of the listed tmux defaults, or as what cockpit itself last wrote
-# (remembered in @cockpit-restyled-OPTION, so a config reload or a re-pinned
-# accent still lands). Any other value is the user's own and is left untouched.
+# cockpit_restyle OPTION NEW TMUX_DEFAULT... — the theme repairs below, skipped
+# entirely under `@cockpit-fix-tmux-defaults off`.
 cockpit_restyle() {
-  local opt="$1" new="$2" cur mine d
-  shift 2
   [ "$fix_defaults" = off ] && return 0
-  cur="$(_tm show-option -gqv "$opt" 2>/dev/null)"
-  mine="$(_tm show-option -gqv "@cockpit-restyled-$opt" 2>/dev/null)"
-  for d in "$@" ${mine:+"$mine"}; do
-    [ "$cur" = "$d" ] || continue
-    _tm set -g "$opt" "$new"
-    _tm set -g "@cockpit-restyled-$opt" "$new"
-    return 0
-  done
+  cockpit_own "$@"
 }
 
 # The status bar cockpit draws ON. tmux ships it green-with-black-ink, so a fresh

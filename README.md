@@ -80,6 +80,17 @@ set -g @cockpit-reminders-file "~/.config/tmux/reminders.txt"
 # and/or inline reminders shown alongside the file's
 set -g @cockpit-reminders "ship the PR"
 
+# lay the main row out yourself: cockpit publishes [S] and [G] as segments, and
+# leaves status-left alone once you set it. Sessions left, windows pushed right,
+# git at the far right end:
+# set -g status-left    "#{E:@cockpit-segment-sessions}"
+# set -g status-justify right
+# set -g status-right   "#{E:@cockpit-segment-git} "
+# Click a session name to switch to it; click [S] for the picker. On a row with
+# no window list, #{E:@cockpit-segment-sessions-list} trims the names to fit.
+# [R] is @cockpit-segment-reminders; cockpit leaves a status-format[1] of yours
+# alone too, so the reminders row can carry the windows on its right.
+
 # retune the status-bar section colors (any tmux colour; defaults shown). The
 # defaults are NAMED ansi slots, which the terminal resolves from its ACTIVE
 # theme — so the accents follow a light/dark theme flip for free. Pin a fixed
@@ -195,7 +206,6 @@ Tune with `@cockpit-zoxide off` (drop source 3 entirely) and
 ## How it works
 
 - `scripts/sessionizer.sh` — the picker + create-or-switch logic
-- `scripts/session-list.sh` — renders the status-bar session list
 - `scripts/layout-default.sh` — the default cockpit layout
 - `scripts/tmsg.sh` — `tmsg <target> <msg>`: send a line to another window/pane in one call (e.g. `myrepo:build`; the `send-keys -l … ; send-keys Enter` two-step, wrapped)
 - `scripts/link.sh` — `make install`: symlink the `tmsg` CLI onto `PATH`

@@ -24,7 +24,7 @@ inline="$(_tm show-option -gqv @cockpit-reminders 2>/dev/null)"
 
 # Items are tinted with the [R] legend colour so the row reads as one group, like
 # the [S] sessions; separators stay dim. The accent defaults to a NAMED ansi slot
-# the terminal resolves from its active theme, matching session-list.sh's colour
+# the terminal resolves from its active theme, matching the [S] session list's colour
 # note. No marker here; the caller's [R] tag labels the line.
 accent="$(cockpit_opt @cockpit-color-reminders green)"   # the [R] legend colour
 sep=''

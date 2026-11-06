@@ -61,13 +61,50 @@ teardown() {
   run tmux -L "$COCKPIT_SOCKET" show-option -gv status
   [ "$output" = "2" ]
   run tmux -L "$COCKPIT_SOCKET" show-option -gv 'status-format[1]'
-  [[ "$output" == *"topbar.sh"* ]]   # row 1 is the reminders ([R]) line
+  [ "$output" = "#[align=left]#{E:@cockpit-segment-reminders}" ]   # row 1 is the [R] line
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv @cockpit-segment-reminders
+  [[ "$output" == *"topbar.sh"* ]]
+}
+
+@test "cockpit.tmux leaves a row 1 you set yourself alone, on every load" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders "ship it"
+  tmux -L "$COCKPIT_SOCKET" set -g 'status-format[1]' "#{E:@cockpit-segment-reminders}#[align=right]mine"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv 'status-format[1]'
+  [ "$output" = "#{E:@cockpit-segment-reminders}#[align=right]mine" ]
 }
 
 @test "cockpit.tmux keeps a single status row when no reminders are configured" {
   COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
   run tmux -L "$COCKPIT_SOCKET" show-option -gv status
   [ "$output" = "on" ]
+}
+
+@test "cockpit.tmux publishes [S] and [G] as segments and lays them out on status-left" {
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv @cockpit-segment-sessions
+  [[ "$output" == *'#{S:'* ]]
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv @cockpit-segment-git
+  [[ "$output" == *"git-context.sh"* ]]
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-left
+  [ "$output" = "#{E:@cockpit-segment-sessions}  #{E:@cockpit-segment-git}" ]
+}
+
+@test "cockpit.tmux leaves a status-left you set yourself alone, on every load" {
+  tmux -L "$COCKPIT_SOCKET" set -g status-left "#{E:@cockpit-segment-sessions}"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-left
+  [ "$output" = "#{E:@cockpit-segment-sessions}" ]
+}
+
+@test "cockpit.tmux moves the pre-segment status-left literal onto the segment form" {
+  s="$(cd "${BATS_TEST_DIRNAME}/../scripts" && pwd)"
+  tmux -L "$COCKPIT_SOCKET" set -g status-left "#[fg=blue,reverse,bold] S #[default] #($s/session-list.sh)  #($s/git-context.sh '#{pane_current_path}')"
+  COCKPIT_SOCKET="$COCKPIT_SOCKET" bash "${BATS_TEST_DIRNAME}/../cockpit.tmux"
+  run tmux -L "$COCKPIT_SOCKET" show-option -gv status-left
+  [[ "$output" == *"@cockpit-segment-sessions"* ]]
 }
 
 @test "edit-reminders creates the reminders file (so the menu entry can edit it)" {
