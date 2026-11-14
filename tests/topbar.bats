@@ -19,6 +19,37 @@ teardown() {
   [ -z "$output" ]
 }
 
+# installed_tmux_is V — put a `tmux` first on PATH that answers -V with V and is
+# the real tmux for everything else: what a package upgrade leaves a live server with.
+installed_tmux_is() {
+  local real; real="$(command -v tmux)"
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  printf '#!/bin/sh\n[ "$1" = -V ] && { echo "tmux %s"; exit 0; }\nexec "%s" "$@"\n' "$1" "$real" > "$BATS_TEST_TMPDIR/bin/tmux"
+  chmod +x "$BATS_TEST_TMPDIR/bin/tmux"
+  PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+}
+
+@test "topbar warns when the running server is not the installed tmux" {
+  installed_tmux_is 99.9
+  run bash "$SCRIPTS/topbar.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"installed is 99.9: restart tmux"* ]]
+}
+
+@test "topbar puts the stale-server warning ahead of the reminders" {
+  installed_tmux_is 99.9
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders "ship the PR"
+  run bash "$SCRIPTS/topbar.sh"
+  [[ "$output" == *"restart tmux"*"ship the PR"* ]]
+}
+
+@test "topbar says nothing about the server when it is the installed tmux" {
+  tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders "ship the PR"
+  run bash "$SCRIPTS/topbar.sh"
+  [[ "$output" == *"ship the PR"* ]]
+  [[ "$output" != *"restart tmux"* ]]
+}
+
 @test "topbar shows an inline reminder" {
   tmux -L "$COCKPIT_SOCKET" set -g @cockpit-reminders "ship the PR"
   run bash "$SCRIPTS/topbar.sh"

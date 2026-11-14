@@ -22,6 +22,7 @@ Built by [@cansirin](https://github.com/cansirin), stolen with love by
 | hold the prefix | a **`PREFIX` chip** lights up on the right, next to the standing `prefix + Space = menu` hint |
 | `[G]` git context | active pane's **branch + dirty/ahead/behind** — vanishes outside a repo |
 | reminders | a **`[R]` row** of inline notes and/or a file you keep updated — appears automatically when configured |
+| upgrade tmux under a live server | a red **`!` restart warning** leads the `[R]` segment until the server is the installed tmux again — a server whose binary was replaced loses `~/Documents` on macOS without a prompt |
 | open a project | auto **cockpit layout** (main pane + dev/git/logs) for anything with a `package.json` |
 | every pane | a **titled border bar** — session name · pane title, live-updated by whatever's running (Claude, vim, …) |
 
