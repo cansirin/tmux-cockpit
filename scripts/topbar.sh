@@ -2,7 +2,8 @@
 # tmux-cockpit — render the opt-in reminder top bar.
 #   reminders come from @cockpit-reminders-file (one per line, skip #/blank) then
 #   the inline @cockpit-reminders option; joined with a dim separator.
-# Prints NOTHING (exit 0) when nothing is configured, so an unconfigured bar stays blank.
+#   A stale-server warning (lib.sh: cockpit_stale_server) leads them when it applies.
+# Prints NOTHING (exit 0) when there is nothing to say, so an unconfigured bar stays blank.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 
@@ -20,14 +21,23 @@ fi
 inline="$(_tm show-option -gqv @cockpit-reminders 2>/dev/null)"
 [ -n "$inline" ] && items+=("$inline")
 
-[ "${#items[@]}" -eq 0 ] && exit 0   # nothing configured → blank bar
+stale="$(cockpit_stale_server)"
+
+[ "${#items[@]}" -eq 0 ] && [ -z "$stale" ] && exit 0   # nothing to say → blank bar
+
+# A stale server leads the row. WCAG 1.4.1 (not by hue alone): the `!` chip and
+# the words carry it, red only reinforces.
+sep=''
+if [ -n "$stale" ]; then
+  printf '#[fg=red,reverse,bold] ! #[default] #[fg=red,bold]%s#[default]' "$stale"
+  sep='#[dim] · #[default]'
+fi
 
 # Items are tinted with the [R] legend colour so the row reads as one group, like
 # the [S] sessions; separators stay dim. The accent defaults to a NAMED ansi slot
 # the terminal resolves from its active theme, matching the [S] session list's colour
 # note. No marker here; the caller's [R] tag labels the line.
 accent="$(cockpit_opt @cockpit-color-reminders green)"   # the [R] legend colour
-sep=''
 for it in "${items[@]}"; do
   printf '%s#[fg=%s]%s#[default]' "$sep" "$accent" "$it"
   sep='#[dim] · #[default]'

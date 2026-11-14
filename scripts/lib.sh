@@ -20,6 +20,22 @@ cockpit_opt() {
   printf '%s' "${v:-$2}"
 }
 
+# cockpit_stale_server -> a one-line warning when the RUNNING server is not the
+# tmux now installed, else nothing. A package upgrade swaps the binary under a
+# live server, and Homebrew deletes the old one, so the server keeps running a
+# program that is no longer on disk. macOS then refuses that server ~/Documents,
+# ~/Desktop and ~/Downloads without a prompt: every pane lists them as empty
+# while a fresh terminal works, so nothing points at tmux. Only a server restart
+# clears it, and this line is the one place that says a restart is owed.
+cockpit_stale_server() {
+  local server installed
+  server="$(_tm display-message -p '#{version}' 2>/dev/null)"
+  installed="$(tmux -V 2>/dev/null)"
+  [ -n "$server" ] && [ -n "$installed" ] || return 0
+  [ "tmux $server" = "$installed" ] && return 0
+  printf 'server is tmux %s, installed is %s: restart tmux (kill-server)' "$server" "${installed#tmux }"
+}
+
 # cockpit_session_name PATH -> a readable, tmux-safe *base* name for PATH.
 # Keeps the basename so sessions read as their project. Folders named monorepo*
 # would otherwise all read as "monorepo", so those gain their parent dir for
