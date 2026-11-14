@@ -135,10 +135,19 @@ _tm set -g @cockpit-segment-sessions-list "$s_head#[list=on align=left]#[list=le
 _tm set -g @cockpit-segment-git "#($SCRIPTS/git-context.sh '#{pane_current_path}')"
 _tm set -g status-left-length 400
 
-# cockpit_own OPTION NEW TMUX_DEFAULT... — write NEW only when OPTION still
-# reads as one of the listed tmux defaults, or as what cockpit itself last wrote
-# (remembered in @cockpit-restyled-OPTION, so a config reload or a re-pinned
-# accent still lands). Any other value is the user's own and is left untouched.
+# tmux_shipped OPTION -> the value tmux itself ships for OPTION, read from a
+# throwaway server, so it is right for whichever tmux runs this. A hardcoded list
+# of defaults goes stale: tmux 3.8 renamed its colours (bg=green → bg=themegreen)
+# and every repair that only knew the old spelling silently stopped landing.
+tmux_shipped() {
+  tmux -L "cockpit-defaults-$$" -f /dev/null start-server \; show-option -gv "$1" \; kill-server 2>/dev/null
+}
+
+# cockpit_own OPTION NEW OLD_DEFAULT... — write NEW only when OPTION still reads
+# as what this tmux ships, as one of the listed defaults older tmux shipped (or
+# cockpit once wrote), or as what cockpit itself last wrote (remembered in
+# @cockpit-restyled-OPTION, so a config reload or a re-pinned accent still
+# lands). Any other value is the user's own and is left untouched.
 cockpit_own() {
   local opt="$1" new="$2" cur mine d
   shift 2
@@ -146,7 +155,7 @@ cockpit_own() {
   # an array index (status-format[1]) can't sit in a user option's name
   local marker="@cockpit-restyled-${opt//[\[\]]/_}"
   mine="$(_tm show-option -gqv "$marker" 2>/dev/null)"
-  for d in "$@" ${mine:+"$mine"}; do
+  for d in "$(tmux_shipped "$opt")" "$@" ${mine:+"$mine"}; do
     [ "$cur" = "$d" ] || continue
     _tm set -g "$opt" "$new"
     _tm set -g "$marker" "$new"
@@ -165,14 +174,11 @@ cockpit_own status-left "#{E:@cockpit-segment-sessions}  #{E:@cockpit-segment-gi
 
 # reminders row (row 1) — only when configured; the [R] tag makes it self-evident
 # [R] is published as a segment too, and row 1 is cockpit's only while it still
-# holds tmux's built-in default (read from a throwaway server, so it is right for
-# whichever tmux runs this), cockpit's own value, or the pre-segment literal.
+# holds tmux's built-in default, cockpit's own value, or the pre-segment literal.
 _tm set -g @cockpit-segment-reminders "$r_tag #($SCRIPTS/topbar.sh)"
 if [ -n "$(_tm show-option -gqv @cockpit-reminders-file 2>/dev/null)$(_tm show-option -gqv @cockpit-reminders 2>/dev/null)" ]; then
   _tm set -g status 2
-  tmux_row1="$(tmux -L "cockpit-defaults-$$" -f /dev/null start-server \; show-option -gv 'status-format[1]' \; kill-server 2>/dev/null)"
   cockpit_own 'status-format[1]' "#[align=left]#{E:@cockpit-segment-reminders}" \
-    "$tmux_row1" \
     "#[align=left]$r_tag #($SCRIPTS/topbar.sh)"
 else
   _tm set -g status on
